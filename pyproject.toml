@@ -1,0 +1,79 @@
+[project]
+name = "refract"
+version = "0.1.0"
+description = "Refract a Python function into multiple interfaces: REST API, CLI, MCP tools, and Web UI"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+keywords = ["api", "cli", "mcp", "web-components", "fastapi", "pydantic", "prototyping", "agents"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn>=0.24.0",
+    "pydantic>=2.11.5",
+    "click>=8.0.0",
+    "fastapi-mcp>=0.4.0",
+    "docstring-parser>=0.17.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Brunvelop/refract"
+"Bug Reports" = "https://github.com/Brunvelop/refract/issues"
+"Source" = "https://github.com/Brunvelop/refract"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["refract*"]
+
+[tool.setuptools.package-data]
+"refract.web" = [
+    "views/*.html",
+    "*.js",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+]
+markers = [
+    "unit: Unit tests for individual functions and classes",
+    "integration: Integration tests for cross-module functionality",
+    "api: Tests for API functionality",
+    "cli: Tests for CLI functionality",
+    "mcp: Tests for MCP integration",
+    "registry: Tests for function registry",
+    "models: Tests for Pydantic models",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.1",
+    "httpx>=0.24.0",
+]
