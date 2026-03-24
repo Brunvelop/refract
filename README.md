@@ -384,9 +384,10 @@ Use `--verbose` to enable DEBUG-level output, or pass `strict=True` to `_discove
 ```
 refract/
 ├── refract/
-│   ├── __init__.py       # Public API: Refract, register_function
+│   ├── __init__.py       # Public API: Refract, register_function (version falls back to `0.0.0-dev` when not installed)
 │   ├── models.py         # ParamSchema, FunctionInfo, FunctionSchema
-│   ├── registry.py       # @register_function decorator + Refract class
+│   ├── registry.py       # @register_function decorator + Registry class
+│   ├── refract.py        # Refract facade class
 │   ├── api.py            # FastAPI app/router factories
 │   ├── cli.py            # Click group factory
 │   ├── mcp.py            # FastAPI + MCP factory
@@ -422,6 +423,7 @@ refract/
 | `.router()` | `APIRouter` | Only the function endpoints (mount in your own app) |
 | `.cli()` | `click.Group` | Click group with built-in and function commands |
 | `.mcp()` | `FastAPI` | FastAPI app with MCP integration |
+| `.mcp_only()` | `FastAPI` | MCP-only FastAPI app (no REST API endpoints) |
 | `.run_cli` | `click.Group` | Cached property — use as `pyproject.toml` entry point |
 | `@.command()` | decorator | Register a custom Click command on this instance |
 | `.get_all_functions()` | `list[FunctionInfo]` | All registered functions |
