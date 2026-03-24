@@ -3,13 +3,22 @@ Pytest configuration and global fixtures for refract tests.
 """
 import pytest
 from unittest.mock import Mock, MagicMock, patch
+from typing import Any
 import logging
 
-from refract.models import ParamSchema, FunctionInfo, GenericOutput
+from pydantic import BaseModel
+from refract.models import ParamSchema, FunctionInfo
 from refract.registry import _clear_pending
 
 # Configure logging for tests
 logging.basicConfig(level=logging.DEBUG)
+
+
+class TestOutput(BaseModel):
+    """Local test model replacing GenericOutput. Used across all tests."""
+    result: Any
+    success: bool = True
+    message: str | None = None
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +32,7 @@ def cleanup_registry():
 @pytest.fixture
 def sample_function():
     """Sample function for testing registry functionality."""
-    def test_add(x: int, y: int = 1) -> GenericOutput:
+    def test_add(x: int, y: int = 1) -> TestOutput:
         """Add two numbers together.
 
         Args:
@@ -33,7 +42,7 @@ def sample_function():
         Returns:
             Sum of x and y
         """
-        return GenericOutput(result=x + y, success=True)
+        return TestOutput(result=x + y, success=True)
     return test_add
 
 
@@ -61,7 +70,7 @@ def sample_function_info(sample_function):
             ParamSchema(name="y", type=int, default=1, required=False, description="Second number")
         ],
         http_methods=["GET", "POST"],
-        return_type=GenericOutput
+        return_type=TestOutput
     )
 
 

@@ -8,7 +8,8 @@ import pytest
 from unittest.mock import Mock, patch
 from fastapi import FastAPI
 
-from refract.models import FunctionInfo, GenericOutput
+from refract.models import FunctionInfo
+from tests.conftest import TestOutput
 
 
 # ============================================================================
@@ -208,7 +209,7 @@ class TestRefractMcp:
             params=[],
             http_methods=["POST"],
             interfaces=["mcp"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
         r._registry.append(func_info)
 
@@ -236,7 +237,7 @@ class TestRefractMcp:
             params=[],
             http_methods=["GET"],
             interfaces=["api"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
         r._registry.append(api_only)
 

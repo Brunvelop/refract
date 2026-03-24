@@ -9,8 +9,9 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from pydantic import BaseModel, ValidationError
 
 from refract.models import (
-    ParamSchema, FunctionInfo, FunctionSchema, GenericOutput
+    ParamSchema, FunctionInfo, FunctionSchema
 )
+from tests.conftest import TestOutput
 
 
 class TestParamSchema:
@@ -78,7 +79,7 @@ class TestFunctionInfo:
             func=sample_function,
             description="Test function",
             params=[],
-            return_type=GenericOutput
+            return_type=TestOutput
         )
 
         assert func_info.name == "test_func"
@@ -100,7 +101,7 @@ class TestFunctionInfo:
             description="Complete test function",
             params=params,
             http_methods=["GET", "POST", "PUT"],
-            return_type=GenericOutput
+            return_type=TestOutput
         )
 
         assert func_info.name == "complete_func"
@@ -118,7 +119,7 @@ class TestFunctionInfo:
             func=lambda x: x,
             description="Test",
             params=[],
-            return_type=GenericOutput
+            return_type=TestOutput
         )
         assert callable(func_info.func)
 
@@ -130,7 +131,7 @@ class TestFunctionInfo:
             func=test_func,
             description="Test",
             params=[],
-            return_type=GenericOutput
+            return_type=TestOutput
         )
         assert callable(func_info.func)
 
@@ -141,66 +142,6 @@ class TestFunctionInfo:
 
         with pytest.raises(ValidationError):
             FunctionInfo(name="test")  # Missing func and description
-
-
-class TestGenericOutput:
-    """Tests for GenericOutput model - standardized response format."""
-
-    def test_generic_output_minimal(self):
-        """Test creating GenericOutput with just result."""
-        output = GenericOutput(result="test_result")
-
-        assert output.result == "test_result"
-        assert output.success is True  # Default value
-        assert output.message is None  # Default value
-
-    def test_generic_output_complete(self):
-        """Test creating GenericOutput with all fields."""
-        output = GenericOutput(
-            result={"data": "test"},
-            success=False,
-            message="Operation failed"
-        )
-
-        assert output.result == {"data": "test"}
-        assert output.success is False
-        assert output.message == "Operation failed"
-
-    @pytest.mark.parametrize("result", [
-        "string_result",
-        123,
-        {"dict": "result"},
-        [1, 2, 3],
-        True,
-        None,
-    ])
-    def test_generic_output_various_result_types(self, result):
-        """Test GenericOutput with various result types."""
-        output = GenericOutput(result=result)
-        assert output.result == result
-        assert output.success is True
-
-    def test_generic_output_dict_conversion(self):
-        """Test that GenericOutput can be converted to dict."""
-        output = GenericOutput(
-            result="test",
-            success=True,
-            message="Success"
-        )
-
-        output_dict = output.model_dump()
-        expected = {
-            "result": "test",
-            "success": True,
-            "message": "Success"
-        }
-
-        assert output_dict == expected
-
-    def test_generic_output_validation_required_fields(self):
-        """Test that result field is required."""
-        with pytest.raises(ValidationError):
-            GenericOutput()  # Missing required result field
 
 
 class TestModelsIntegration:
@@ -218,7 +159,7 @@ class TestModelsIntegration:
             func=sample_function,
             description="Integrated test",
             params=params,
-            return_type=GenericOutput
+            return_type=TestOutput
         )
 
         assert len(func_info.params) == 2
@@ -241,7 +182,7 @@ class TestFunctionInfoStreaming:
             func=sample_function,
             description="Test function",
             params=[],
-            return_type=GenericOutput
+            return_type=TestOutput
         )
         assert func_info.streaming is False
 
@@ -252,7 +193,7 @@ class TestFunctionInfoStreaming:
             func=sample_function,
             description="Test function",
             params=[],
-            return_type=GenericOutput,
+            return_type=TestOutput,
             streaming=True
         )
         assert func_info.streaming is True
@@ -264,7 +205,7 @@ class TestFunctionInfoStreaming:
             func=sample_function,
             description="Test function",
             params=[],
-            return_type=GenericOutput,
+            return_type=TestOutput,
             streaming=True
         )
         schema = func_info.to_schema()
@@ -277,7 +218,7 @@ class TestFunctionInfoStreaming:
             func=sample_function,
             description="Test function",
             params=[],
-            return_type=GenericOutput
+            return_type=TestOutput
         )
         schema = func_info.to_schema()
         assert schema.streaming is False
@@ -469,14 +410,14 @@ class TestResponseSchema:
         assert "response_schema" in data
         assert data["response_schema"] is None
 
-    def test_function_info_to_schema_includes_response_schema_with_generic_output(self, sample_function):
-        """to_schema() generates correct JSON Schema for GenericOutput return type."""
+    def test_function_info_to_schema_includes_response_schema_with_test_output(self, sample_function):
+        """to_schema() generates correct JSON Schema for TestOutput return type."""
         func_info = FunctionInfo(
             name="test_func",
             func=sample_function,
             description="Test function",
             params=[],
-            return_type=GenericOutput
+            return_type=TestOutput
         )
         schema = func_info.to_schema()
 
@@ -530,9 +471,9 @@ class TestResponseSchema:
             func=sample_function,
             description="Test function",
             params=[],
-            return_type=GenericOutput
+            return_type=TestOutput
         )
         schema = func_info.to_schema()
 
-        expected_schema = GenericOutput.model_json_schema()
+        expected_schema = TestOutput.model_json_schema()
         assert schema.response_schema == expected_schema

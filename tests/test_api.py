@@ -25,8 +25,9 @@ from refract.api import (
     create_api_app,
     _add_function_endpoints,
 )
-from refract.models import GenericOutput, FunctionInfo, ParamSchema
+from refract.models import FunctionInfo, ParamSchema
 from refract import Refract
+from tests.conftest import TestOutput
 
 
 # ---------------------------------------------------------------------------
@@ -54,8 +55,8 @@ def _make_refract_stub(functions=None, stream_registry=None):
 
 def _make_api_func_info(name="api_func", http_methods=None):
     """Create a simple FunctionInfo with 'api' interface."""
-    def _fn(x: int, y: int = 1) -> GenericOutput:
-        return GenericOutput(result=x + y, success=True)
+    def _fn(x: int, y: int = 1) -> TestOutput:
+        return TestOutput(result=x + y, success=True)
 
     _fn.__name__ = name
     return FunctionInfo(
@@ -68,7 +69,7 @@ def _make_api_func_info(name="api_func", http_methods=None):
         ],
         http_methods=http_methods or ["GET", "POST"],
         interfaces=["api"],
-        return_type=GenericOutput,
+        return_type=TestOutput,
     )
 
 
@@ -95,9 +96,9 @@ class TestCreateResultResponse:
         ([1, 2, 3], [1, 2, 3]),
     ])
     def test_create_result_response_non_dict(self, input_value, expected_result):
-        """Test response creation with non-dict inputs via GenericOutput wrapper."""
-        generic_output = GenericOutput(result=input_value, success=True)
-        result = create_result_response(generic_output)
+        """Test response creation with non-dict inputs via TestOutput wrapper."""
+        test_output = TestOutput(result=input_value, success=True)
+        result = create_result_response(test_output)
 
         assert isinstance(result, dict)
         assert "result" in result
@@ -114,8 +115,8 @@ class TestCreateResultResponse:
                 self.value = value
 
         obj = CustomObject("test")
-        generic_output = GenericOutput(result=obj, success=True)
-        result = create_result_response(generic_output)
+        test_output = TestOutput(result=obj, success=True)
+        result = create_result_response(test_output)
 
         assert isinstance(result, dict)
         assert result["result"] == obj
@@ -163,9 +164,9 @@ class TestCreateResultResponseBaseModel:
         with pytest.raises(TypeError, match="Function must return BaseModel or dict, got CustomObject"):
             create_result_response(obj)
 
-    def test_format_response_generic_output_still_works_via_basemodel_path(self):
-        """GenericOutput is handled correctly (via BaseModel isinstance check)."""
-        output = GenericOutput(result=99, success=True, message="all good")
+    def test_format_response_test_output_works_via_basemodel_path(self):
+        """TestOutput is handled correctly (via BaseModel isinstance check)."""
+        output = TestOutput(result=99, success=True, message="all good")
         response = create_result_response(output)
 
         assert response["result"] == 99
@@ -198,7 +199,7 @@ class TestCreateResultResponseExtended:
         result_dict = create_result_response({})
         assert result_dict == {}
 
-        empty_list_output = GenericOutput(result=[], success=True)
+        empty_list_output = TestOutput(result=[], success=True)
         result_list = create_result_response(empty_list_output)
         assert result_list["result"] == []
         assert result_list["success"] is True
@@ -240,7 +241,7 @@ class TestCreateDynamicModel:
             func=lambda x: x,
             description="Test",
             params=[required_param],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         DynamicModel = create_dynamic_model(func_info, for_post=True)
@@ -287,7 +288,7 @@ class TestCreateDynamicModel:
             func=lambda: None,
             description="Complex function",
             params=params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         DynamicModel = create_dynamic_model(func_info, for_post=True)
@@ -309,7 +310,7 @@ class TestCreateDynamicModel:
             func=lambda items, numbers: None,
             description="Function with list parameters",
             params=params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         DynamicModel = create_dynamic_model(func_info, for_post=True)
@@ -333,7 +334,7 @@ class TestCreateDynamicModel:
             func=lambda config, metadata: None,
             description="Dict function",
             params=params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         DynamicModel = create_dynamic_model(func_info, for_post=True)
@@ -358,7 +359,7 @@ class TestCreateDynamicModel:
             func=lambda opt1, opt2, opt3: None,
             description="All optional",
             params=params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         DynamicModel = create_dynamic_model(func_info, for_post=True)
@@ -380,7 +381,7 @@ class TestCreateDynamicModel:
             func=lambda: "result",
             description="No params",
             params=[],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         DynamicModel = create_dynamic_model(func_info, for_post=True)
@@ -421,7 +422,7 @@ class TestExtractFunctionParams:
             func=lambda: None,
             description="Test",
             params=params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         result = extract_function_params(func_info, {"required": "test"})
@@ -442,7 +443,7 @@ class TestExtractFunctionParams:
             func=lambda: None,
             description="Mixed",
             params=params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         result = extract_function_params(func_info, {"required_str": "test"})
@@ -468,7 +469,7 @@ class TestExtractFunctionParams:
             func=lambda: None,
             description="Strict",
             params=params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         with pytest.raises(ValueError, match="Missing required parameter: 'name'"):
@@ -494,7 +495,7 @@ class TestExtractFunctionParams:
             func=lambda: None,
             description="Partial",
             params=params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         result = extract_function_params(func_info, {"p2": 20})
@@ -523,7 +524,7 @@ class TestExecuteFunctionWithParams:
             func=dict_func,
             description="Returns dict",
             params=[ParamSchema(name="name", type=str, required=True, description="Name")],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         result = execute_function_with_params(func_info, {"name": "World"}, "GET")
@@ -540,7 +541,7 @@ class TestExecuteFunctionWithParams:
             func=failing_func,
             description="Failing",
             params=[ParamSchema(name="x", type=int, required=True, description="x")],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         with pytest.raises(HTTPException) as exc_info:
@@ -559,7 +560,7 @@ class TestExecuteFunctionWithParams:
             func=greet,
             description="Greet",
             params=[ParamSchema(name="name", type=str, required=True, description="Name")],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         with pytest.raises(HTTPException) as exc_info:
@@ -578,7 +579,7 @@ class TestExecuteFunctionWithParams:
             func=error_func,
             description="Error",
             params=[ParamSchema(name="x", type=int, required=True, description="x")],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         with pytest.raises(HTTPException) as exc_info:
@@ -610,7 +611,7 @@ class TestExecuteFunctionWithParams:
                 ParamSchema(name="x", type=int, required=True, description="x"),
                 ParamSchema(name="y", type=str, required=True, description="y"),
             ],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         with pytest.raises(HTTPException) as exc_info:
@@ -633,7 +634,7 @@ class TestExecuteFunctionWithParams:
             func=custom_error_func,
             description="Custom error",
             params=[ParamSchema(name="x", type=int, required=True, description="x")],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         with pytest.raises(HTTPException) as exc_info:
@@ -652,7 +653,7 @@ class TestExecuteFunctionWithParams:
             func=error_func,
             description="Error func",
             params=[],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         with pytest.raises(HTTPException):
@@ -722,7 +723,7 @@ class TestAddFunctionEndpoints:
             description="MCP only",
             params=[],
             interfaces=["mcp"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
         mock_target = Mock()
         mock_target.add_api_route = Mock()
@@ -751,7 +752,7 @@ class TestAddFunctionEndpoints:
             params=[ParamSchema(name="message", type=str, required=True, description="msg")],
             http_methods=["POST"],
             interfaces=["api"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
             streaming=True,
         )
 
@@ -776,7 +777,7 @@ class TestAddFunctionEndpoints:
             params=[],
             http_methods=["POST"],
             interfaces=["api"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
             streaming=True,
         )
 
@@ -794,12 +795,12 @@ class TestAddFunctionEndpoints:
         """Both streaming and normal functions can coexist."""
         normal_func = FunctionInfo(
             name="normal",
-            func=lambda: GenericOutput(result="ok", success=True),
+            func=lambda: TestOutput(result="ok", success=True),
             description="Normal",
             params=[],
             http_methods=["GET"],
             interfaces=["api"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
             streaming=False,
         )
         stream_func = FunctionInfo(
@@ -809,7 +810,7 @@ class TestAddFunctionEndpoints:
             params=[ParamSchema(name="msg", type=str, required=True, description="msg")],
             http_methods=["POST"],
             interfaces=["api"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
             streaming=True,
         )
 
@@ -827,12 +828,12 @@ class TestAddFunctionEndpoints:
         """Test registering endpoints with custom HTTP methods."""
         custom_func_info = FunctionInfo(
             name="custom_func",
-            func=lambda x: GenericOutput(result=x, success=True),
+            func=lambda x: TestOutput(result=x, success=True),
             description="Custom PUT/DELETE",
             params=[ParamSchema(name="x", type=str, required=True, description="Param")],
             http_methods=["PUT", "DELETE"],
             interfaces=["api"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         mock_target = Mock()

@@ -14,7 +14,8 @@ from refract.cli import (
     _create_handler,
     TYPE_MAP,
 )
-from refract.models import ParamSchema, FunctionInfo, GenericOutput
+from refract.models import ParamSchema, FunctionInfo
+from tests.conftest import TestOutput
 
 
 # ============================================================================
@@ -117,7 +118,7 @@ class TestCreateHandler:
             handler(x=5, y=3)
             mock_echo.assert_called_once()
             call_args = mock_echo.call_args[0][0]
-            assert isinstance(call_args, GenericOutput)
+            assert isinstance(call_args, TestOutput)
             assert call_args.result == 8
             assert call_args.success is True
 
@@ -129,12 +130,12 @@ class TestCreateHandler:
             handler(x=10, y=None)
             mock_echo.assert_called_once()
             call_args = mock_echo.call_args[0][0]
-            assert isinstance(call_args, GenericOutput)
+            assert isinstance(call_args, TestOutput)
             assert call_args.result == 11  # 10 + default 1
 
     def test_create_handler_execution_error(self, sample_function_info):
         """Handler echoes error and raises Abort when function fails."""
-        def error_func(x: int, y: int = 1) -> GenericOutput:
+        def error_func(x: int, y: int = 1) -> TestOutput:
             raise ValueError("Test error")
 
         func_info = FunctionInfo(
@@ -142,7 +143,7 @@ class TestCreateHandler:
             func=error_func,
             description="Error function",
             params=sample_function_info.params,
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         handler = _create_handler("error_func", func_info)
@@ -171,7 +172,7 @@ class TestCLICommandRegistrationEdgeCases:
             params=[
                 ParamSchema(name="param_name", type=str, required=True, description="Param with underscore")
             ],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
 
         def test_command(**kwargs):
@@ -339,7 +340,7 @@ class TestRefractCli:
             description="API only function",
             params=[],
             interfaces=["api"],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
         r = Refract("test-project")
         r._registry.append(sample_function_info)   # has 'cli' interface

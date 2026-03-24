@@ -18,7 +18,8 @@ from refract.registry import (
 )
 from refract import Refract
 from pydantic import BaseModel
-from refract.models import FunctionInfo, ParamSchema, GenericOutput, FunctionSchema
+from refract.models import FunctionInfo, ParamSchema, FunctionSchema
+from tests.conftest import TestOutput
 
 
 class TestGenerateFunctionInfo:
@@ -26,7 +27,7 @@ class TestGenerateFunctionInfo:
 
     def test_generate_function_info_simple(self):
         """Test function info generation from simple function."""
-        def simple_func(x: int, y: str = "default") -> GenericOutput:
+        def simple_func(x: int, y: str = "default") -> TestOutput:
             """Simple function for testing.
 
             Args:
@@ -36,7 +37,7 @@ class TestGenerateFunctionInfo:
             Returns:
                 A formatted string
             """
-            return GenericOutput(result=f"{x}: {y}", success=True)
+            return TestOutput(result=f"{x}: {y}", success=True)
 
         info = _generate_function_info(simple_func)
 
@@ -70,10 +71,10 @@ class TestGenerateFunctionInfo:
             _generate_function_info(no_annotations_func)
 
     def test_generate_function_info_with_any_params(self):
-        """Test function info generation with Any type parameters but GenericOutput return."""
-        def any_params_func(x, y=42) -> GenericOutput:
+        """Test function info generation with Any type parameters but TestOutput return."""
+        def any_params_func(x, y=42) -> TestOutput:
             """Function with Any type parameters."""
-            return GenericOutput(result=x + y, success=True)
+            return TestOutput(result=x + y, success=True)
 
         info = _generate_function_info(any_params_func)
 
@@ -93,8 +94,8 @@ class TestGenerateFunctionInfo:
 
     def test_generate_function_info_no_docstring(self):
         """Test function info generation without docstring."""
-        def no_doc_func(x: int) -> GenericOutput:
-            return GenericOutput(result=x * 2, success=True)
+        def no_doc_func(x: int) -> TestOutput:
+            return TestOutput(result=x * 2, success=True)
 
         info = _generate_function_info(no_doc_func)
 
@@ -107,9 +108,9 @@ class TestGenerateFunctionInfo:
 
     def test_generate_function_info_custom_http_methods(self):
         """Test function info generation with custom HTTP methods."""
-        def custom_func(x: int) -> GenericOutput:
+        def custom_func(x: int) -> TestOutput:
             """Custom function."""
-            return GenericOutput(result=x, success=True)
+            return TestOutput(result=x, success=True)
 
         info = _generate_function_info(custom_func, http_methods=["POST", "PUT"])
 
@@ -117,8 +118,8 @@ class TestGenerateFunctionInfo:
 
     def test_generate_function_info_invalid_http_methods(self):
         """Test function info generation with invalid HTTP methods."""
-        def test_func(x: int) -> GenericOutput:
-            return GenericOutput(result=x, success=True)
+        def test_func(x: int) -> TestOutput:
+            return TestOutput(result=x, success=True)
 
         with pytest.raises(ValueError, match="Invalid HTTP methods"):
             _generate_function_info(test_func, http_methods=["INVALID"])
@@ -130,14 +131,14 @@ class TestGenerateFunctionInfo:
             optional_param: int = 10,
             *args,
             **kwargs
-        ) -> GenericOutput:
+        ) -> TestOutput:
             """Complex function with various parameter types.
 
             Args:
                 required_param: A required string parameter
                 optional_param: An optional integer parameter
             """
-            return GenericOutput(result={"result": "complex"}, success=True)
+            return TestOutput(result={"result": "complex"}, success=True)
 
         info = _generate_function_info(complex_func)
 
@@ -161,9 +162,9 @@ class TestRegisterFunctionDecorator:
     def test_register_function_basic(self):
         """Test basic function registration."""
         @register_function()
-        def test_basic_func(x: int) -> GenericOutput:
+        def test_basic_func(x: int) -> TestOutput:
             """Basic test function."""
-            return GenericOutput(result=x * 2, success=True)
+            return TestOutput(result=x * 2, success=True)
 
         app = Refract("test")
         func_info = app.get_function_by_name("test_basic_func")
@@ -181,9 +182,9 @@ class TestRegisterFunctionDecorator:
     def test_register_function_custom_methods(self):
         """Test function registration with custom HTTP methods."""
         @register_function(http_methods=["GET"])
-        def get_only_func(x: str) -> GenericOutput:
+        def get_only_func(x: str) -> TestOutput:
             """GET-only function."""
-            return GenericOutput(result=f"GET: {x}", success=True)
+            return TestOutput(result=f"GET: {x}", success=True)
 
         app = Refract("test")
         func_info = app.get_function_by_name("get_only_func")
@@ -203,15 +204,15 @@ class TestRegisterFunctionDecorator:
     def test_register_function_duplicate_raises_error(self):
         """Test that registering a function with the same name raises RegistryError."""
         @register_function()
-        def duplicate_test_func(x: int) -> GenericOutput:
+        def duplicate_test_func(x: int) -> TestOutput:
             """First registration."""
-            return GenericOutput(result=x, success=True)
+            return TestOutput(result=x, success=True)
 
         with pytest.raises(RegistryError, match="already registered"):
             @register_function()
-            def duplicate_test_func(y: str) -> GenericOutput:  # noqa: F811
+            def duplicate_test_func(y: str) -> TestOutput:  # noqa: F811
                 """Second registration with same name."""
-                return GenericOutput(result=y, success=True)
+                return TestOutput(result=y, success=True)
 
 
 class TestRegistryIntegration:
@@ -220,14 +221,14 @@ class TestRegistryIntegration:
     def test_end_to_end_function_registration_and_usage(self):
         """Test complete flow from registration to usage."""
         @register_function(http_methods=["GET", "POST"])
-        def integration_test_func(name: str, count: int = 1) -> GenericOutput:
+        def integration_test_func(name: str, count: int = 1) -> TestOutput:
             """Integration test function.
 
             Args:
                 name: The name to repeat
                 count: How many times to repeat it
             """
-            return GenericOutput(result=" ".join([name] * count), success=True)
+            return TestOutput(result=" ".join([name] * count), success=True)
 
         app = Refract("test")
         func_info = app.get_function_by_name("integration_test_func")
@@ -266,11 +267,15 @@ class TestDecoratorDetection:
         """Test detection of @register_function() in source file."""
         module_file = tmp_path / "test_module.py"
         module_file.write_text('''
-from refract import register_function, GenericOutput
+from pydantic import BaseModel
+from refract import register_function
+
+class MyOutput(BaseModel):
+    result: str
 
 @register_function()
-def my_func() -> GenericOutput:
-    return GenericOutput(result="test", success=True)
+def my_func() -> MyOutput:
+    return MyOutput(result="test")
 ''')
 
         assert _has_register_decorator(str(module_file)) is True
@@ -279,11 +284,15 @@ def my_func() -> GenericOutput:
         """Test detection of @register_function without parentheses."""
         module_file = tmp_path / "test_module_no_parens.py"
         module_file.write_text('''
-from refract import register_function, GenericOutput
+from pydantic import BaseModel
+from refract import register_function
+
+class MyOutput(BaseModel):
+    result: str
 
 @register_function
-def my_func() -> GenericOutput:
-    return GenericOutput(result="test", success=True)
+def my_func() -> MyOutput:
+    return MyOutput(result="test")
 ''')
 
         assert _has_register_decorator(str(module_file)) is True
@@ -292,12 +301,15 @@ def my_func() -> GenericOutput:
         """Test detection of @registry.register_function() with module prefix."""
         module_file = tmp_path / "test_module_prefix.py"
         module_file.write_text('''
+from pydantic import BaseModel
 from refract import registry
-from refract.models import GenericOutput
+
+class MyOutput(BaseModel):
+    result: str
 
 @registry.register_function()
-def my_func() -> GenericOutput:
-    return GenericOutput(result="test", success=True)
+def my_func() -> MyOutput:
+    return MyOutput(result="test")
 ''')
 
         assert _has_register_decorator(str(module_file)) is True
@@ -372,9 +384,9 @@ class TestRegisterStreamingFunction:
             yield "chunk"
 
         @register_function(streaming=True, stream_func=mock_stream)
-        def streaming_func(message: str) -> GenericOutput:
+        def streaming_func(message: str) -> TestOutput:
             """A streaming function."""
-            return GenericOutput(result=message, success=True)
+            return TestOutput(result=message, success=True)
 
         app = Refract("test")
         func_info = app.get_function_by_name("streaming_func")
@@ -387,9 +399,9 @@ class TestRegisterStreamingFunction:
     def test_register_non_streaming_default(self):
         """Normal registration keeps streaming=False, no stream_func."""
         @register_function()
-        def normal_func(x: int) -> GenericOutput:
+        def normal_func(x: int) -> TestOutput:
             """A normal function."""
-            return GenericOutput(result=x, success=True)
+            return TestOutput(result=x, success=True)
 
         app = Refract("test")
         func_info = app.get_function_by_name("normal_func")
@@ -402,9 +414,9 @@ class TestRegisterStreamingFunction:
         """streaming=True without stream_func raises RegistryError."""
         with pytest.raises(RegistryError, match="streaming=True requires stream_func"):
             @register_function(streaming=True)
-            def bad_streaming_func(message: str) -> GenericOutput:
+            def bad_streaming_func(message: str) -> TestOutput:
                 """Bad streaming function."""
-                return GenericOutput(result=message, success=True)
+                return TestOutput(result=message, success=True)
 
     def test_clear_pending_clears_stream_funcs(self):
         """_clear_pending() also clears _pending_stream_funcs."""
@@ -412,9 +424,9 @@ class TestRegisterStreamingFunction:
             yield "chunk"
 
         @register_function(streaming=True, stream_func=mock_stream)
-        def stream_func_clear_test(message: str) -> GenericOutput:
+        def stream_func_clear_test(message: str) -> TestOutput:
             """A streaming function."""
-            return GenericOutput(result=message, success=True)
+            return TestOutput(result=message, success=True)
 
         assert len(_pending_stream_funcs) > 0
         assert len(_pending_registrations) > 0
@@ -429,7 +441,7 @@ class TestBaseModelSupport:
     """Tests for relaxed return type validation: any BaseModel subclass is accepted."""
 
     def test_register_function_accepts_plain_basemodel(self):
-        """Functions returning a plain BaseModel subclass (not GenericOutput) can be registered."""
+        """Functions returning a plain BaseModel subclass can be registered."""
         class SearchResponse(BaseModel):
             users: list[str]
             total: int
@@ -452,18 +464,6 @@ class TestBaseModelSupport:
         result = search_users("test")
         assert result.users == ["ana"]
         assert result.total == 1
-
-    def test_register_function_generic_output_still_works(self):
-        """GenericOutput (a BaseModel subclass) continues to register correctly."""
-        @register_function()
-        def legacy_func(x: int) -> GenericOutput:
-            """Legacy function using GenericOutput."""
-            return GenericOutput(result=x, success=True)
-
-        app = Refract("test")
-        func_info = app.get_function_by_name("legacy_func")
-        assert func_info is not None
-        assert func_info.return_type is GenericOutput
 
     def test_register_function_rejects_non_basemodel_return(self):
         """Functions returning a non-BaseModel type (e.g. str, int) still raise RegistryError."""
@@ -538,16 +538,16 @@ class TestRefractClass:
 
     def test_refract_collects_pending_registrations(self):
         """Refract() auto-drains _pending_registrations on instantiation."""
-        def my_func(x: int) -> GenericOutput:
+        def my_func(x: int) -> TestOutput:
             """My function."""
-            return GenericOutput(result=x)
+            return TestOutput(result=x)
 
         info = FunctionInfo(
             name="refract_test_func",
             func=my_func,
             description="My function.",
             params=[],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
         _pending_registrations.append(info)
 
@@ -563,12 +563,12 @@ class TestRefractClass:
         app1 = Refract("app1")
         app2 = Refract("app2")
 
-        def func_a(x: int) -> GenericOutput:
+        def func_a(x: int) -> TestOutput:
             """Func A."""
-            return GenericOutput(result=x)
+            return TestOutput(result=x)
 
         info_a = FunctionInfo(
-            name="func_a", func=func_a, description="Func A.", params=[], return_type=GenericOutput
+            name="func_a", func=func_a, description="Func A.", params=[], return_type=TestOutput
         )
         app1._registry.append(info_a)
 
@@ -581,16 +581,16 @@ class TestRefractClass:
         """Refract.clear() empties the instance registry."""
         app = Refract("clearable")
 
-        def fn(x: int) -> GenericOutput:
+        def fn(x: int) -> TestOutput:
             """Fn."""
-            return GenericOutput(result=x)
+            return TestOutput(result=x)
 
         instance_info = FunctionInfo(
             name="instance_func",
             func=fn,
             description="Instance function.",
             params=[],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
         app._registry.append(instance_info)
         assert app.function_count() == 1
@@ -606,16 +606,16 @@ class TestRefractClass:
 
         app = Refract("streamer")
 
-        def streaming_fn(msg: str) -> GenericOutput:
+        def streaming_fn(msg: str) -> TestOutput:
             """Streaming fn."""
-            return GenericOutput(result=msg)
+            return TestOutput(result=msg)
 
         info = FunctionInfo(
             name="my_stream_fn",
             func=streaming_fn,
             description="Streaming fn.",
             params=[],
-            return_type=GenericOutput,
+            return_type=TestOutput,
             streaming=True,
         )
         app._registry.append(info)
@@ -628,19 +628,19 @@ class TestRefractClass:
         """get_functions_for_interface filters correctly."""
         app = Refract("filter-test")
 
-        def fn_api_only(x: int) -> GenericOutput:
-            return GenericOutput(result=x)
+        def fn_api_only(x: int) -> TestOutput:
+            return TestOutput(result=x)
 
-        def fn_mcp_only(x: int) -> GenericOutput:
-            return GenericOutput(result=x)
+        def fn_mcp_only(x: int) -> TestOutput:
+            return TestOutput(result=x)
 
         info_api = FunctionInfo(
             name="fn_api_only", func=fn_api_only, description="API only.",
-            params=[], return_type=GenericOutput, interfaces=["api"],
+            params=[], return_type=TestOutput, interfaces=["api"],
         )
         info_mcp = FunctionInfo(
             name="fn_mcp_only", func=fn_mcp_only, description="MCP only.",
-            params=[], return_type=GenericOutput, interfaces=["mcp"],
+            params=[], return_type=TestOutput, interfaces=["mcp"],
         )
         app._registry.extend([info_api, info_mcp])
 
@@ -660,9 +660,9 @@ class TestRefractClass:
     def test_refract_clear_pending_clears_buffer(self):
         """_clear_pending() clears _pending_registrations and _pending_stream_funcs."""
         @register_function()
-        def pending_test_func(x: int) -> GenericOutput:
+        def pending_test_func(x: int) -> TestOutput:
             """Pending test function."""
-            return GenericOutput(result=x)
+            return TestOutput(result=x)
 
         assert len(_pending_registrations) > 0
 
@@ -674,9 +674,9 @@ class TestRefractClass:
     def test_refract_auto_drains_decorator_registrations(self):
         """@register_function() + Refract() without discover works end-to-end."""
         @register_function()
-        def auto_drain_func(x: int) -> GenericOutput:
+        def auto_drain_func(x: int) -> TestOutput:
             """Auto drain function."""
-            return GenericOutput(result=x)
+            return TestOutput(result=x)
 
         app = Refract("auto")  # drains pending automatically
 
@@ -687,14 +687,14 @@ class TestRefractClass:
         """get_all_schemas returns serializable FunctionSchema objects."""
         app = Refract("schema-test")
 
-        def fn(x: int) -> GenericOutput:
+        def fn(x: int) -> TestOutput:
             """Test fn."""
-            return GenericOutput(result=x)
+            return TestOutput(result=x)
 
         info = FunctionInfo(
             name="schema_fn", func=fn, description="Test fn.",
             params=[ParamSchema(name="x", type=int, required=True, description="x")],
-            return_type=GenericOutput,
+            return_type=TestOutput,
         )
         app._registry.append(info)
 
@@ -707,9 +707,9 @@ class TestRefractClass:
     def test_two_refract_instances_dont_share_pending(self):
         """Each Refract() call drains the buffer; a second Refract() gets an empty slate."""
         @register_function()
-        def shared_func(x: int) -> GenericOutput:
+        def shared_func(x: int) -> TestOutput:
             """Shared func."""
-            return GenericOutput(result=x)
+            return TestOutput(result=x)
 
         app1 = Refract("first")   # drains shared_func
         app2 = Refract("second")  # pending is now empty
@@ -737,15 +737,15 @@ class TestThreadSafety:
 
         def worker(thread_id: int) -> None:
             for i in range(N_FUNCS_PER_THREAD):
-                def fn(x: int) -> GenericOutput:
-                    return GenericOutput(result=x)
+                def fn(x: int) -> TestOutput:
+                    return TestOutput(result=x)
 
                 info = FunctionInfo(
                     name=f"thread_{thread_id}_func_{i}",
                     func=fn,
                     description=f"Thread {thread_id} func {i}.",
                     params=[],
-                    return_type=GenericOutput,
+                    return_type=TestOutput,
                 )
                 try:
                     with _pending_lock:
@@ -775,8 +775,8 @@ class TestThreadSafety:
         """
         from refract.registry import _pending_registrations, _pending_lock
 
-        def fn(x: int) -> GenericOutput:
-            return GenericOutput(result=x)
+        def fn(x: int) -> TestOutput:
+            return TestOutput(result=x)
 
         with _pending_lock:
             for i in range(5):
@@ -785,7 +785,7 @@ class TestThreadSafety:
                     func=fn,
                     description=f"Atomic func {i}.",
                     params=[],
-                    return_type=GenericOutput,
+                    return_type=TestOutput,
                 ))
 
         app = Refract("atomic-drain")  # calls _drain_pending()
