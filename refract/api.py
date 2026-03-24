@@ -305,7 +305,8 @@ def _extract_params(
 ) -> Dict[str, Any]:
     """Extract known function parameters from raw request data.
 
-    Ignores extra keys and fills in non-None defaults for missing optional params.
+    Ignores extra keys, fills in defaults (including ``None``) for missing
+    optional params, and raises ``ValueError`` for missing required params.
 
     Args:
         func_info: Function metadata.
@@ -313,13 +314,18 @@ def _extract_params(
 
     Returns:
         Clean dict with only the params the function expects.
+
+    Raises:
+        ValueError: If a required parameter is absent from ``request_params``.
     """
     params = {}
     for param in func_info.params:
         if param.name in request_params:
             params[param.name] = request_params[param.name]
-        elif not param.required and param.default is not None:
-            params[param.name] = param.default
+        elif param.required:
+            raise ValueError(f"Missing required parameter: '{param.name}'")
+        else:
+            params[param.name] = param.default  # can be None, and that's fine
     return params
 
 

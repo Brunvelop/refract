@@ -409,8 +409,8 @@ class TestExtractFunctionParams:
         assert result == {"x": 5, "y": 1}
 
     def test_extract_function_params_missing_required(self, sample_function_info):
-        result = extract_function_params(sample_function_info, {"y": 3})
-        assert result == {"y": 3}
+        with pytest.raises(ValueError, match="Missing required parameter: 'x'"):
+            extract_function_params(sample_function_info, {"y": 3})
 
     def test_extract_function_params_extra_params(self, sample_function_info):
         result = extract_function_params(sample_function_info, {"x": 5, "y": 3, "extra": "ignored"})
@@ -430,7 +430,7 @@ class TestExtractFunctionParams:
         )
 
         result = extract_function_params(func_info, {"required": "test"})
-        assert result == {"required": "test"}
+        assert result == {"required": "test", "optional": None}
 
     def test_extract_function_params_mixed_defaults(self):
         """Test parameter extraction with mixed default types."""
@@ -457,9 +457,34 @@ class TestExtractFunctionParams:
             "optional_int": 42,
             "optional_list": [],
             "optional_dict": {},
-            # optional_none excluded (None default)
+            "optional_none": None,  # None default is now included
         }
         assert result == expected
+
+    def test_extract_params_missing_required_raises_valueerror(self):
+        """_extract_params raises ValueError with a descriptive message for missing required params."""
+        params = [
+            ParamSchema(name="name", type=str, required=True, description="Name"),
+            ParamSchema(name="age", type=int, required=True, description="Age"),
+            ParamSchema(name="nickname", type=str, default=None, required=False, description="Nickname"),
+        ]
+        func_info = FunctionInfo(
+            name="strict_func",
+            func=lambda: None,
+            description="Strict",
+            params=params,
+            return_type=GenericOutput,
+        )
+
+        with pytest.raises(ValueError, match="Missing required parameter: 'name'"):
+            extract_function_params(func_info, {"age": 30})
+
+        with pytest.raises(ValueError, match="Missing required parameter: 'age'"):
+            extract_function_params(func_info, {"name": "Alice"})
+
+        # All required present → no error
+        result = extract_function_params(func_info, {"name": "Alice", "age": 30})
+        assert result == {"name": "Alice", "age": 30, "nickname": None}
 
     def test_extract_function_params_partial_override(self):
         """Test partial override of defaults."""
@@ -528,6 +553,26 @@ class TestExecuteFunctionWithParams:
 
         assert exc_info.value.status_code == 400
         assert "Parameter error" in str(exc_info.value.detail)
+
+    def test_execute_function_missing_required_param_returns_400(self):
+        """Missing required param in _execute_function escalates to HTTP 400."""
+        def greet(name: str) -> dict:
+            return {"greeting": f"Hello, {name}!"}
+
+        func_info = FunctionInfo(
+            name="greet",
+            func=greet,
+            description="Greet",
+            params=[ParamSchema(name="name", type=str, required=True, description="Name")],
+            return_type=GenericOutput,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            execute_function_with_params(func_info, {}, "POST")
+
+        assert exc_info.value.status_code == 400
+        assert "Missing required parameter" in exc_info.value.detail
+        assert "'name'" in exc_info.value.detail
 
     def test_execute_function_with_params_runtime_error(self):
         def error_func(x: int) -> int:
