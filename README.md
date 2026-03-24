@@ -98,6 +98,9 @@ The return type becomes the FastAPI `response_model` — precise OpenAPI schema,
 )
 ```
 
+> **Note:** Only synchronous functions are supported. `async def` functions
+> will not be awaited correctly.
+
 ---
 
 ## 📐 Levels of complexity

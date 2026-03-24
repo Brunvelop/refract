@@ -91,6 +91,11 @@ def register_function(
         interfaces: Interfaces to expose on (default: api, cli, mcp).
         streaming: Whether this function supports SSE streaming.
         stream_func: Async generator function for streaming. Required if streaming=True.
+
+    Note:
+        Only synchronous functions are supported. If you register an
+        ``async def`` function, it will NOT be awaited — the coroutine
+        object will be returned instead of the actual result.
     """
     def decorator(func: Callable) -> Callable:
         try:
