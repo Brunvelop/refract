@@ -31,7 +31,7 @@ from docstring_parser import parse
 
 from pydantic import BaseModel
 from refract.models import (
-    FunctionInfo, ParamSchema, GenericOutput, FunctionSchema,
+    FunctionInfo, ParamSchema, FunctionSchema,
     HttpMethod, Interface, DEFAULT_HTTP_METHODS, DEFAULT_INTERFACES
 )
 
