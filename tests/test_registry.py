@@ -718,6 +718,106 @@ class TestRefractClass:
         assert app2.function_count() == 0
 
 
+class TestDiscoverLockProtection:
+    """Tests verifying _discover reads _pending_registrations under _pending_lock."""
+
+    def test_discover_reads_total_funcs_with_lock(self, tmp_path, monkeypatch):
+        """_discover() holds _pending_lock when reading _pending_registrations for the summary count."""
+        import sys
+        import threading
+        import refract.registry as reg_module
+
+        # Create a minimal package with no @register_function modules so only
+        # the end-of-scan summary line triggers a lock acquisition.
+        pkg_dir = tmp_path / "locktest_pkg"
+        pkg_dir.mkdir()
+        (pkg_dir / "__init__.py").write_text("")
+        (pkg_dir / "utils.py").write_text("# plain module — no @register_function\n")
+
+        sys.path.insert(0, str(tmp_path))
+        acquisition_count = 0
+        real_lock = threading.Lock()
+
+        class SpyLock:
+            def __enter__(self):
+                nonlocal acquisition_count
+                acquisition_count += 1
+                real_lock.acquire()
+                return self
+
+            def __exit__(self, *args):
+                real_lock.release()
+
+        spy = SpyLock()
+
+        try:
+            # Instantiate first so _drain_pending() runs with the real lock.
+            app = reg_module.Registry("lock-test")
+            # Patch the module-level lock so _discover uses our spy.
+            monkeypatch.setattr(reg_module, "_pending_lock", spy)
+            app._discover(["locktest_pkg"])
+        finally:
+            sys.path.remove(str(tmp_path))
+            for key in list(sys.modules.keys()):
+                if "locktest_pkg" in key:
+                    del sys.modules[key]
+
+        # At minimum the total_funcs summary line must have acquired the lock once.
+        assert acquisition_count >= 1
+
+    def test_discover_reads_before_count_with_lock(self, tmp_path, monkeypatch):
+        """_discover() holds _pending_lock when sampling _pending_registrations before/after import."""
+        import sys
+        import threading
+        import refract.registry as reg_module
+
+        # Create a package with one module that has @register_function so the
+        # per-module before/after snapshot code runs.
+        pkg_dir = tmp_path / "lockfunc_pkg"
+        pkg_dir.mkdir()
+        (pkg_dir / "__init__.py").write_text("")
+        (pkg_dir / "funcs.py").write_text(
+            "from pydantic import BaseModel\n"
+            "from refract.registry import register_function\n\n"
+            "class Out(BaseModel):\n"
+            "    result: str\n\n"
+            "@register_function()\n"
+            "def lock_spy_func(x: int) -> Out:\n"
+            "    '''Lock spy function.'''\n"
+            "    return Out(result=str(x))\n"
+        )
+
+        sys.path.insert(0, str(tmp_path))
+        acquisition_count = 0
+        real_lock = threading.Lock()
+
+        class SpyLock:
+            def __enter__(self):
+                nonlocal acquisition_count
+                acquisition_count += 1
+                real_lock.acquire()
+                return self
+
+            def __exit__(self, *args):
+                real_lock.release()
+
+        spy = SpyLock()
+
+        try:
+            app = reg_module.Registry("lock-func-test")
+            monkeypatch.setattr(reg_module, "_pending_lock", spy)
+            app._discover(["lockfunc_pkg"])
+        finally:
+            sys.path.remove(str(tmp_path))
+            for key in list(sys.modules.keys()):
+                if "lockfunc_pkg" in key:
+                    del sys.modules[key]
+            reg_module._clear_pending()
+
+        # Expect acquisitions for: before-snapshot + after-snapshot + summary = 3
+        assert acquisition_count >= 3
+
+
 class TestThreadSafety:
     """Tests for thread-safe access to the global pending buffer."""
 

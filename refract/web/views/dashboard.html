@@ -463,7 +463,7 @@
         container.innerHTML = '';
 
         for (const funcName of Object.keys(functions)) {
-            const el = document.createElement(`auto-${funcName}`);
+            const el = document.createElement(`auto-${funcName.replace(/_/g, '-')}`);
             container.appendChild(el);
         }
 
@@ -502,7 +502,11 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 </script>
 </body>
 </html>

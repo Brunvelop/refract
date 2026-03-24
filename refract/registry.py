@@ -342,10 +342,12 @@ class Registry:
                 if not _has_register_decorator(module_path_str):
                     logger.debug(f"[refract:{self.name}]   ℹ️  {module_name} — no @register_function found")
                     continue
-                before = len(_pending_registrations)
+                with _pending_lock:
+                    before = len(_pending_registrations)
                 try:
                     importlib.import_module(module_name)
-                    n_funcs = len(_pending_registrations) - before
+                    with _pending_lock:
+                        n_funcs = len(_pending_registrations) - before
                     logger.info(f"[refract:{self.name}]   ✅ {module_name} — {n_funcs} function{'s' if n_funcs != 1 else ''}")
                 except Exception as e:
                     failed.append((module_name, str(e)))
@@ -353,7 +355,8 @@ class Registry:
                         f"[refract:{self.name}]   ⚠️  {module_name} — skipped ({type(e).__name__}: {e})"
                     )
 
-        total_funcs = len(self._registry) + len(_pending_registrations)
+        with _pending_lock:
+            total_funcs = len(self._registry) + len(_pending_registrations)
         logger.info(
             f"[refract:{self.name}] Total: {total_funcs} function{'s' if total_funcs != 1 else ''} registered"
             + (f", {len(failed)} module{'s' if len(failed) != 1 else ''} skipped" if failed else "")

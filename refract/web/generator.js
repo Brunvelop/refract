@@ -46,7 +46,7 @@ export class AutoElementGenerator {
     }
 
     generateElement(funcName, funcInfo) {
-        const elementName = `auto-${funcName}`;
+        const elementName = `auto-${funcName.replace(/_/g, '-')}`;
         if (customElements.get(elementName)) return;
 
         // Extendemos de AutoFunctionElement (que extiende del Controller)
