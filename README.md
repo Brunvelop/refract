@@ -4,7 +4,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
+[![Status: Stable](https://img.shields.io/badge/status-stable-brightgreen.svg)]()
 
 Define a typed Python function once — and automatically get a **REST API**, a **CLI**, **MCP tools** for AI agents, and a **Web UI**.
 

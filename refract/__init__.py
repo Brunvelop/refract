@@ -31,7 +31,12 @@ Usage::
     mcp_app = app.mcp()        # MCP tools
 """
 
-__version__ = "0.1.0"
+from importlib.metadata import version as _pkg_version, PackageNotFoundError as _PkgNotFoundError
+
+try:
+    __version__ = _pkg_version("refract")
+except _PkgNotFoundError:
+    __version__ = "0.0.0-dev"
 
 __all__ = [
     # Core framework class
