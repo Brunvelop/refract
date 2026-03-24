@@ -14,6 +14,10 @@ graph acyclic:
     mcp        → api, registry
     registry   → models
 """
+from fastapi import FastAPI
+from fastapi.routing import APIRouter
+import click
+
 from refract.registry import Registry
 from refract.api import create_api_app, create_router
 from refract.cli import create_cli
@@ -44,7 +48,7 @@ class Refract(Registry):
     # Interface factories
     # ------------------------------------------------------------------
 
-    def api(self):
+    def api(self) -> FastAPI:
         """Create and return a complete FastAPI application for this instance.
 
         Returns:
@@ -52,7 +56,7 @@ class Refract(Registry):
         """
         return create_api_app(self)
 
-    def router(self):
+    def router(self) -> APIRouter:
         """Create and return an ``APIRouter`` with only the dynamic endpoints.
 
         Returns:
@@ -60,7 +64,7 @@ class Refract(Registry):
         """
         return create_router(self)
 
-    def cli(self):
+    def cli(self) -> click.Group:
         """Create and return a Click group for this instance.
 
         Returns:
@@ -68,7 +72,7 @@ class Refract(Registry):
         """
         return create_cli(self)
 
-    def mcp(self):
+    def mcp(self) -> FastAPI:
         """Create and return a FastAPI application with API + MCP integration.
 
         Returns:
@@ -76,7 +80,7 @@ class Refract(Registry):
         """
         return create_mcp_app(self)
 
-    def mcp_only(self):
+    def mcp_only(self) -> FastAPI:
         """Create and return a minimal FastAPI application with MCP endpoints only.
 
         Unlike :meth:`mcp`, this does not include REST API endpoints, HTML
@@ -89,7 +93,7 @@ class Refract(Registry):
         return create_mcp_only_app(self)
 
     @property
-    def run_cli(self):
+    def run_cli(self) -> click.Group:
         """Return the Click group for use as a ``pyproject.toml`` entry point.
 
         Enables zero-boilerplate entry points::
