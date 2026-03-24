@@ -21,13 +21,13 @@ from refract.api import (
     _execute_function,
     create_handler,
     _register_static_files,
-    create_router_for_refract,
-    create_api_app_for_refract,
+    create_router,
+    create_api_app,
     _add_function_endpoints,
-    _register_standard_endpoints_for_refract,
+    _register_standard_endpoints,
 )
 from refract.models import GenericOutput, FunctionInfo, ParamSchema
-from refract.registry import Refract
+from refract import Refract
 
 
 # ---------------------------------------------------------------------------
@@ -847,42 +847,42 @@ class TestRegisterStaticFiles:
 # Tests: create_router_for_refract
 # ---------------------------------------------------------------------------
 
-class TestCreateRouterForRefract:
-    """Tests for create_router_for_refract — router/bring-your-own-app mode."""
+class TestCreateRouter:
+    """Tests for create_router — router/bring-your-own-app mode."""
 
     def test_router_returns_apirouter(self):
         from fastapi.routing import APIRouter
 
         stub = _make_refract_stub()
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         assert isinstance(router, APIRouter)
 
     def test_router_registers_dynamic_endpoints(self):
         func = _make_api_func_info("add_nums")
         stub = _make_refract_stub(functions=[func])
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         route_paths = [r.path for r in router.routes if hasattr(r, "path")]
         assert "/add_nums" in route_paths
 
     def test_router_has_functions_details_endpoint(self):
         stub = _make_refract_stub()
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         route_paths = [r.path for r in router.routes if hasattr(r, "path")]
         assert "/functions/details" in route_paths
 
     def test_router_has_health_endpoint(self):
         stub = _make_refract_stub()
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         route_paths = [r.path for r in router.routes if hasattr(r, "path")]
         assert "/health" in route_paths
 
     def test_router_excludes_root_html_pages(self):
         stub = _make_refract_stub()
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         route_paths = {r.path for r in router.routes if hasattr(r, "path")}
         for html_path in ["/", "/functions", "/demo", "/tests"]:
@@ -891,7 +891,7 @@ class TestCreateRouterForRefract:
     def test_router_mountable_on_custom_fastapi_app(self):
         func = _make_api_func_info("my_fn")
         stub = _make_refract_stub(functions=[func])
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         custom_app = FastAPI()
         custom_app.include_router(router)
@@ -906,7 +906,7 @@ class TestCreateRouterForRefract:
         f1 = _make_api_func_info("fn1")
         f2 = _make_api_func_info("fn2")
         stub = _make_refract_stub(functions=[f1, f2])
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         custom_app = FastAPI()
         custom_app.include_router(router)
@@ -921,7 +921,7 @@ class TestCreateRouterForRefract:
     def test_router_functions_details_returns_instance_schemas(self):
         func = _make_api_func_info("unique_router_fn")
         stub = _make_refract_stub(functions=[func])
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         custom_app = FastAPI()
         custom_app.include_router(router)
@@ -935,7 +935,7 @@ class TestCreateRouterForRefract:
 
     def test_router_empty_registry_no_dynamic_routes(self):
         stub = _make_refract_stub()
-        router = create_router_for_refract(stub)
+        router = create_router(stub)
 
         route_paths = {r.path for r in router.routes if hasattr(r, "path")}
         assert "/functions/details" in route_paths
@@ -947,23 +947,23 @@ class TestCreateRouterForRefract:
 # Tests: create_api_app_for_refract
 # ---------------------------------------------------------------------------
 
-class TestCreateApiAppForRefract:
-    """Tests for create_api_app_for_refract — full-app mode."""
+class TestCreateApiApp:
+    """Tests for create_api_app — full-app mode."""
 
     def test_api_app_returns_fastapi_instance(self):
         stub = _make_refract_stub()
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
         assert isinstance(app, FastAPI)
 
     def test_api_app_title_uses_refract_name(self):
         refract = Refract("my-service")
-        app = create_api_app_for_refract(refract)
+        app = create_api_app(refract)
         assert "my-service" in app.title
 
     def test_api_app_has_dynamic_endpoints(self):
         func = _make_api_func_info("greet")
         stub = _make_refract_stub(functions=[func])
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
         client = TestClient(app)
 
         response = client.get("/greet?x=10")
@@ -973,7 +973,7 @@ class TestCreateApiAppForRefract:
 
     def test_api_app_has_health_endpoint(self):
         stub = _make_refract_stub()
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
         client = TestClient(app)
 
         response = client.get("/health")
@@ -985,7 +985,7 @@ class TestCreateApiAppForRefract:
         f1 = _make_api_func_info("fn_a")
         f2 = _make_api_func_info("fn_b")
         stub = _make_refract_stub(functions=[f1, f2])
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
         client = TestClient(app)
 
         response = client.get("/health")
@@ -994,7 +994,7 @@ class TestCreateApiAppForRefract:
     def test_api_app_has_functions_details_endpoint(self):
         func = _make_api_func_info("my_detail_fn")
         stub = _make_refract_stub(functions=[func])
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
         client = TestClient(app)
 
         response = client.get("/functions/details")
@@ -1004,14 +1004,14 @@ class TestCreateApiAppForRefract:
 
     def test_api_app_has_root_endpoint(self):
         stub = _make_refract_stub()
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
 
         root_routes = [r for r in app.routes if hasattr(r, "path") and r.path == "/"]
         assert len(root_routes) == 1
 
     def test_api_app_has_functions_endpoint(self):
         stub = _make_refract_stub()
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
 
         routes = [r for r in app.routes if hasattr(r, "path") and r.path == "/functions"]
         assert len(routes) == 1
@@ -1027,7 +1027,7 @@ class TestCreateApiAppForRefract:
         refract_b = Refract("service-b")
         refract_b._registry.append(func_b)
 
-        app_a = create_api_app_for_refract(refract_a)
+        app_a = create_api_app(refract_a)
         client_a = TestClient(app_a)
 
         # service-a serves its own function
@@ -1042,7 +1042,7 @@ class TestCreateApiAppForRefract:
         """Full integration: POST to a registered function."""
         func = _make_api_func_info("calc", http_methods=["GET", "POST"])
         stub = _make_refract_stub(functions=[func])
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
         client = TestClient(app)
 
         response = client.get("/calc?x=5&y=3")
@@ -1057,7 +1057,7 @@ class TestCreateApiAppForRefract:
         """Missing required param returns 422 (FastAPI validation)."""
         func = _make_api_func_info("validate_fn")
         stub = _make_refract_stub(functions=[func])
-        app = create_api_app_for_refract(stub)
+        app = create_api_app(stub)
         client = TestClient(app)
 
         response = client.get("/validate_fn")  # Missing x

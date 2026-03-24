@@ -45,4 +45,5 @@ __all__ = [
 ]
 
 from refract.models import ParamSchema, FunctionInfo, FunctionSchema
-from refract.registry import Refract, register_function
+from refract.registry import register_function
+from refract.refract import Refract

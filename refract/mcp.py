@@ -19,7 +19,8 @@ import logging
 from fastapi import FastAPI
 from fastapi_mcp import FastApiMCP
 
-from refract.api import create_handler
+from refract.api import create_api_app, create_handler
+from refract.registry import Registry
 
 logger = logging.getLogger(__name__)
 
@@ -28,18 +29,18 @@ logger = logging.getLogger(__name__)
 # REFRACT INSTANCE API
 # ============================================================================
 
-def _register_mcp_endpoints_for_refract(app: FastAPI, refract) -> None:
-    """Register MCP endpoints from a Refract instance's registry.
+def _register_mcp_endpoints(app: FastAPI, registry: Registry) -> None:
+    """Register MCP endpoints from a Registry instance.
 
     Only functions that include ``"mcp"`` in their ``interfaces`` list are
     exposed as MCP tool endpoints (tagged ``"mcp-tools"``).
 
     Args:
         app: FastAPI application to register endpoints on.
-        refract: A ``Refract`` instance whose ``"mcp"``-interface functions
+        registry: A ``Registry`` instance whose ``"mcp"``-interface functions
             are exposed as MCP tool endpoints.
     """
-    mcp_functions = refract.get_functions_for_interface("mcp")
+    mcp_functions = registry.get_functions_for_interface("mcp")
 
     for func_info in mcp_functions:
         for method in func_info.http_methods:
@@ -56,20 +57,20 @@ def _register_mcp_endpoints_for_refract(app: FastAPI, refract) -> None:
                 tags=["mcp-tools"],
             )
 
-    logger.info(f"[Refract:{refract.name}] Registered {len(mcp_functions)} MCP endpoints")
+    logger.info(f"[Refract:{registry.name}] Registered {len(mcp_functions)} MCP endpoints")
 
 
-def create_mcp_app_for_refract(refract) -> FastAPI:
-    """Create a FastAPI application with API + MCP integration for a Refract instance.
+def create_mcp_app(registry: Registry) -> FastAPI:
+    """Create a FastAPI application with API + MCP integration for a Registry instance.
 
     Steps:
-        1. Build the base FastAPI app via ``refract.api()``.
+        1. Build the base FastAPI app via ``create_api_app``.
         2. Update app metadata to reflect MCP integration.
         3. Register MCP-specific endpoints from the instance registry.
         4. Initialise and mount the FastApiMCP server.
 
     Args:
-        refract: A ``Refract`` instance whose registry drives both the API
+        registry: A ``Registry`` instance whose registry drives both the API
             and the MCP tool endpoints.
 
     Returns:
@@ -80,29 +81,29 @@ def create_mcp_app_for_refract(refract) -> FastAPI:
     """
     try:
         # Step 1: Create base API application from the instance registry
-        app = refract.api()
+        app = create_api_app(registry)
 
         # Step 2: Update app metadata to reflect MCP integration
-        app.title = f"{refract.name} API + MCP Server"
-        app.description = f"API and MCP server for {refract.name}"
+        app.title = f"{registry.name} API + MCP Server"
+        app.description = f"API and MCP server for {registry.name}"
 
         # Step 3: Register MCP-specific endpoints (only functions with "mcp" interface)
-        _register_mcp_endpoints_for_refract(app, refract)
+        _register_mcp_endpoints(app, registry)
 
         # Step 4: Initialise MCP server — include only mcp-tools tagged endpoints
         mcp = FastApiMCP(
             app,
-            name=f"{refract.name} MCP Server",
-            description=f"MCP server for {refract.name} functions and API endpoints",
+            name=f"{registry.name} MCP Server",
+            description=f"MCP server for {registry.name} functions and API endpoints",
             include_tags=["mcp-tools"],
         )
 
         # Step 5: Mount MCP server with Streamable HTTP transport (modern)
         mcp.mount_http()
 
-        logger.info(f"[Refract:{refract.name}] Successfully created MCP app with API integration")
+        logger.info(f"[Refract:{registry.name}] Successfully created MCP app with API integration")
         return app
 
     except Exception as e:
-        logger.error(f"[Refract:{refract.name}] Failed to create MCP app: {str(e)}")
+        logger.error(f"[Refract:{registry.name}] Failed to create MCP app: {str(e)}")
         raise RuntimeError(f"MCP server initialization failed: {str(e)}") from e

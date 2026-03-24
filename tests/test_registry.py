@@ -13,8 +13,9 @@ from refract.registry import (
     _generate_function_info, register_function,
     _clear_pending,
     RegistryError, _has_register_decorator,
-    Refract, _pending_registrations, _pending_stream_funcs,
+    _pending_registrations, _pending_stream_funcs,
 )
+from refract import Refract
 from pydantic import BaseModel
 from refract.models import FunctionInfo, ParamSchema, GenericOutput, FunctionSchema
 

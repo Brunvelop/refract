@@ -2,6 +2,13 @@
 Central registry for all functions exposed via interfaces (CLI, API, MCP).
 Uses automatic parameter inference from function signatures and docstrings.
 
+This module contains the pure data layer: ``Registry`` stores and queries
+registered functions. It has **no knowledge of interface adapters** (api, cli,
+mcp), keeping the dependency graph acyclic.
+
+The ``Refract`` facade (in ``refract/refract.py``) extends ``Registry`` with
+the ``.api()``, ``.cli()``, ``.mcp()`` convenience methods.
+
 Example::
 
     from refract import register_function
@@ -40,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 # --- PRIVATE STATE ---
 
-# Buffer for pending registrations (used by Refract._drain_pending())
+# Buffer for pending registrations (used by Registry._drain_pending())
 _pending_registrations: list[FunctionInfo] = []
 _pending_stream_funcs: dict[str, Callable] = {}
 
@@ -206,13 +213,18 @@ def _has_register_decorator(module_path: str | None) -> bool:
         return False
 
 
-# --- REFRACT CLASS ---
+# --- REGISTRY CLASS ---
 
-class Refract:
+class Registry:
     """Instance-based registry that owns its own set of registered functions.
 
     Allows multiple isolated registries in the same process, enabling
     multi-project setups and clean test isolation.
+
+    This is the **pure data layer** — it stores and queries registered
+    functions but has no knowledge of interface adapters (api, cli, mcp).
+    The :class:`~refract.refract.Refract` facade extends this class with
+    the ``.api()``, ``.cli()``, ``.mcp()`` convenience methods.
 
     Usage::
 
@@ -223,7 +235,7 @@ class Refract:
     The ``discover`` flow uses the same buffer pattern as Celery:
     - ``@register_function()`` decorators fire when modules are imported,
       writing to the global ``_pending_registrations`` buffer.
-    - ``Refract.__init__`` always calls ``_drain_pending()`` at the end,
+    - ``Registry.__init__`` always calls ``_drain_pending()`` at the end,
       which collects everything in the buffer into this instance and clears it.
 
     This means ``Refract()`` without ``discover`` will also drain any pending
@@ -231,7 +243,7 @@ class Refract:
     """
 
     def __init__(self, name: str, discover: list[str] | None = None) -> None:
-        """Initialise a Refract registry instance.
+        """Initialise a Registry instance.
 
         Args:
             name: Human-readable name for this instance (e.g. ``"my-project"``).
@@ -377,35 +389,8 @@ class Refract:
         self._stream_registry.clear()
 
     # ------------------------------------------------------------------
-    # Interface factories
+    # Custom CLI commands
     # ------------------------------------------------------------------
-
-    def api(self):
-        """Create and return a complete FastAPI application for this instance.
-
-        Returns:
-            A configured ``FastAPI`` application.
-        """
-        from refract.api import create_api_app_for_refract
-        return create_api_app_for_refract(self)
-
-    def router(self):
-        """Create and return an ``APIRouter`` with only the dynamic endpoints.
-
-        Returns:
-            A ``fastapi.routing.APIRouter`` instance.
-        """
-        from refract.api import create_router_for_refract
-        return create_router_for_refract(self)
-
-    def cli(self):
-        """Create and return a Click group for this instance.
-
-        Returns:
-            A ``click.Group`` ready to serve as a CLI entry point.
-        """
-        from refract.cli import create_cli_for_refract
-        return create_cli_for_refract(self)
 
     def command(self, name: str | None = None, **kwargs):
         """Decorator to register a custom CLI command on this instance.
@@ -419,31 +404,6 @@ class Refract:
             self._custom_commands.append((cmd_name, func, kwargs))
             return func
         return decorator
-
-    @property
-    def run_cli(self):
-        """Return the Click group for use as a ``pyproject.toml`` entry point.
-
-        Enables zero-boilerplate entry points::
-
-            # pyproject.toml
-            [project.scripts]
-            my-project = "my_project.app:app.run_cli"
-
-        The result is cached so repeated property accesses return the same object.
-        """
-        if not hasattr(self, '_cli_cached'):
-            self._cli_cached = self.cli()
-        return self._cli_cached
-
-    def mcp(self):
-        """Create and return a FastAPI application with API + MCP integration.
-
-        Returns:
-            A configured ``FastAPI`` application with MCP support.
-        """
-        from refract.mcp import create_mcp_app_for_refract
-        return create_mcp_app_for_refract(self)
 
     # ------------------------------------------------------------------
     # Dunder helpers

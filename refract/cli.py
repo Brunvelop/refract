@@ -20,7 +20,10 @@ import click
 import uvicorn
 from typing import Dict, Any, Callable, Optional
 
+from refract.api import create_api_app
 from refract.log_config import configure_cli_logging
+from refract.mcp import create_mcp_app
+from refract.registry import Registry
 
 
 # ============================================================================
@@ -40,28 +43,28 @@ TYPE_MAP: Dict[type, Any] = {
 # REFRACT INSTANCE API
 # ============================================================================
 
-def create_cli_for_refract(refract) -> click.Group:
-    """Create a complete Click group driven by a ``Refract`` instance.
+def create_cli(registry: Registry) -> click.Group:
+    """Create a complete Click group driven by a ``Registry`` instance.
 
     All commands are bound to the instance registry.  There is no global
     ``app`` object or auto-initialization side effect.
 
     Includes:
         - ``list``      — lists functions in this instance's registry.
-        - ``serve-api`` — starts FastAPI server via ``refract.api()``.
-        - ``serve-mcp`` — starts API+MCP server via ``refract.mcp()``.
+        - ``serve-api`` — starts FastAPI server via ``create_api_app(registry)``.
+        - ``serve-mcp`` — starts API+MCP server via ``create_mcp_app(registry)``.
         - ``serve``     — alias for ``serve-mcp`` (recommended default).
         - Dynamic function commands for all ``"cli"``-interface functions.
-        - Custom commands registered via ``@refract.command()``.
+        - Custom commands registered via ``@registry.command()``.
 
     Args:
-        refract: A ``Refract`` instance whose registry and custom commands
+        registry: A ``Registry`` instance whose registry and custom commands
             are used to build the Click group.
 
     Returns:
         A ``click.Group`` ready to serve as a CLI entry point.
     """
-    @click.group(help=f"{refract.name} CLI")
+    @click.group(help=f"{registry.name} CLI")
     @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output (DEBUG level)')
     @click.pass_context
     def cli_group(ctx, verbose):
@@ -73,7 +76,7 @@ def create_cli_for_refract(refract) -> click.Group:
     def list_cmd():
         """List all available functions in the registry."""
         click.echo("Available functions:")
-        for func_info in refract.get_all_functions():
+        for func_info in registry.get_all_functions():
             click.echo(f"  {func_info.name}: {func_info.description}")
             schema = func_info.to_schema()
             params = schema.parameters
@@ -95,10 +98,10 @@ def create_cli_for_refract(refract) -> click.Group:
     @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
     def serve_api_cmd(host: str, port: int, reload: bool):
         """Start the API server (REST endpoints only)."""
-        click.echo(f"Starting {refract.name} API server on {host}:{port}")
+        click.echo(f"Starting {registry.name} API server on {host}:{port}")
         if reload:
             click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
-        api_app = refract.api()
+        api_app = create_api_app(registry)
         uvicorn.run(api_app, host=host, port=port)
 
     @cli_group.command("serve-mcp")
@@ -107,10 +110,10 @@ def create_cli_for_refract(refract) -> click.Group:
     @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
     def serve_mcp_cmd(host: str, port: int, reload: bool):
         """Start server with API endpoints and MCP integration."""
-        click.echo(f"Starting {refract.name} server (API + MCP) on {host}:{port}")
+        click.echo(f"Starting {registry.name} server (API + MCP) on {host}:{port}")
         if reload:
             click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
-        mcp_app = refract.mcp()
+        mcp_app = create_mcp_app(registry)
         uvicorn.run(mcp_app, host=host, port=port)
 
     @cli_group.command("serve")
@@ -119,33 +122,33 @@ def create_cli_for_refract(refract) -> click.Group:
     @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
     def serve_cmd(host: str, port: int, reload: bool):
         """Start the unified server with both API and MCP (recommended)."""
-        click.echo(f"Starting {refract.name} unified server (API + MCP) on {host}:{port}")
+        click.echo(f"Starting {registry.name} unified server (API + MCP) on {host}:{port}")
         if reload:
             click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
-        unified_app = refract.mcp()
+        unified_app = create_mcp_app(registry)
         uvicorn.run(unified_app, host=host, port=port)
 
     # Register dynamic function commands from the instance registry
-    _register_commands_for_refract(cli_group, refract)
+    _register_commands(cli_group, registry)
 
-    # Register custom commands added via @refract.command()
-    for cmd_name, cmd_func, cmd_kwargs in refract._custom_commands:
+    # Register custom commands added via @registry.command()
+    for cmd_name, cmd_func, cmd_kwargs in registry._custom_commands:
         cli_group.command(name=cmd_name, **cmd_kwargs)(cmd_func)
 
     return cli_group
 
 
-def _register_commands_for_refract(cli_group: click.Group, refract) -> None:
-    """Register dynamic CLI commands from a Refract instance's registry.
+def _register_commands(cli_group: click.Group, registry: Registry) -> None:
+    """Register dynamic CLI commands from a Registry instance.
 
     Only functions that include ``"cli"`` in their ``interfaces`` list are
     added as commands.
 
     Args:
         cli_group: The Click group to add commands to.
-        refract: Refract instance whose ``"cli"``-interface functions are used.
+        registry: Registry instance whose ``"cli"``-interface functions are used.
     """
-    cli_functions = refract.get_functions_for_interface("cli")
+    cli_functions = registry.get_functions_for_interface("cli")
     for func_info in cli_functions:
         command_func = _create_handler(func_info.name, func_info)
         command_func = _add_command_options(command_func, func_info.params)

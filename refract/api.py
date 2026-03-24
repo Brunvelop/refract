@@ -5,21 +5,23 @@ from typing import Any, Callable, Dict, Type
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.routing import APIRouter
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, create_model
 
 from refract.models import FunctionInfo, FunctionSchema
+from refract.registry import Registry
 from refract.sse import _create_stream_handler
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Public API — instance-based (all entry points take a Refract instance)
+# Public API — instance-based (all entry points take a Registry instance)
 # ---------------------------------------------------------------------------
 
-def create_router_for_refract(refract) -> "APIRouter":
-    """Create an ``APIRouter`` with only the dynamic endpoints from a Refract instance.
+def create_router(registry: Registry) -> APIRouter:
+    """Create an ``APIRouter`` with only the dynamic endpoints from a Registry instance.
 
     This is the *router mode* — suitable for mounting on a user-supplied
     ``FastAPI`` app (``my_app.include_router(refract.router())``).
@@ -34,38 +36,36 @@ def create_router_for_refract(refract) -> "APIRouter":
         - Root / functions HTML pages.
 
     Args:
-        refract: A ``Refract`` instance whose registry will be used.
+        registry: A ``Registry`` instance whose registry will be used.
 
     Returns:
         An ``APIRouter`` ready to be included in any FastAPI application.
     """
-    from fastapi.routing import APIRouter
-
     router = APIRouter()
-    functions = refract.get_all_functions()
-    _add_function_endpoints(router, functions, refract.get_stream_func)
+    functions = registry.get_all_functions()
+    _add_function_endpoints(router, functions, registry.get_stream_func)
 
-    def _make_details_handler(refract_ref):
+    def _make_details_handler(registry_ref):
         async def list_functions_details() -> dict:
-            schemas = refract_ref.get_all_schemas()
+            schemas = registry_ref.get_all_schemas()
             return {"functions": {s.name: s for s in schemas}}
         return list_functions_details
 
-    def _make_health_handler(refract_ref):
+    def _make_health_handler(registry_ref):
         async def health_check() -> dict:
-            return {"status": "healthy", "functions": refract_ref.function_count()}
+            return {"status": "healthy", "functions": registry_ref.function_count()}
         return health_check
 
     router.add_api_route(
         "/functions/details",
-        _make_details_handler(refract),
+        _make_details_handler(registry),
         methods=["GET"],
         operation_id="refract_list_functions_details",
         summary="List all registered function schemas",
     )
     router.add_api_route(
         "/health",
-        _make_health_handler(refract),
+        _make_health_handler(registry),
         methods=["GET"],
         operation_id="refract_health_check",
         summary="Health check",
@@ -74,20 +74,20 @@ def create_router_for_refract(refract) -> "APIRouter":
     return router
 
 
-def create_api_app_for_refract(refract) -> FastAPI:
-    """Create a complete ``FastAPI`` application for a ``Refract`` instance.
+def create_api_app(registry: Registry) -> FastAPI:
+    """Create a complete ``FastAPI`` application for a ``Registry`` instance.
 
     Suitable for the *app mode*::
 
         app = Refract("my-project", discover=["my_project.core"])
         fastapi_app = app.api()  # Ready to serve
 
-    Includes everything ``create_router_for_refract`` produces, plus:
+    Includes everything ``create_router`` produces, plus:
         - Standard HTML pages (root ``/``, ``/functions``).
         - Static file mounts (``/elements``).
 
     Args:
-        refract: A ``Refract`` instance whose registry will be used.
+        registry: A ``Registry`` instance whose registry will be used.
 
     Returns:
         A configured ``FastAPI`` application.
@@ -99,14 +99,14 @@ def create_api_app_for_refract(refract) -> FastAPI:
         _version = "unknown"
 
     app = FastAPI(
-        title=f"{refract.name} API",
-        description=f"API for {refract.name}",
+        title=f"{registry.name} API",
+        description=f"API for {registry.name}",
         version=_version,
     )
 
-    functions = refract.get_all_functions()
-    _add_function_endpoints(app, functions, refract.get_stream_func)
-    _register_standard_endpoints_for_refract(app, refract)
+    functions = registry.get_all_functions()
+    _add_function_endpoints(app, functions, registry.get_stream_func)
+    _register_standard_endpoints(app, registry)
     _register_static_files(app)
 
     return app
@@ -149,8 +149,7 @@ def _add_function_endpoints(
     """Register dynamic endpoints from a given list of FunctionInfo objects.
 
     This is the parameterised core — it does not touch any global registry.
-    Both ``create_router_for_refract`` and ``create_api_app_for_refract``
-    delegate here.
+    Both ``create_router`` and ``create_api_app`` delegate here.
 
     Args:
         app_or_router: A ``FastAPI`` app or ``APIRouter`` to add routes to.
@@ -193,12 +192,12 @@ def _add_function_endpoints(
     logger.info(f"Registered {len(api_functions)} dynamic endpoints")
 
 
-def _register_standard_endpoints_for_refract(app: FastAPI, refract) -> None:
-    """Register standard endpoints bound to a Refract instance's registry.
+def _register_standard_endpoints(app: FastAPI, registry: Registry) -> None:
+    """Register standard endpoints bound to a Registry instance.
 
     Args:
         app: FastAPI application to register endpoints on.
-        refract: Refract instance whose registry is used for data endpoints.
+        registry: Registry instance whose data is used for data endpoints.
     """
     current_dir = os.path.dirname(__file__)
     views_dir = os.path.join(current_dir, "web", "views")
@@ -213,12 +212,12 @@ def _register_standard_endpoints_for_refract(app: FastAPI, refract) -> None:
 
     @app.get("/functions/details")
     async def list_functions_details() -> dict[str, dict[str, FunctionSchema]]:
-        schemas = refract.get_all_schemas()
+        schemas = registry.get_all_schemas()
         return {"functions": {s.name: s for s in schemas}}
 
     @app.get("/health")
     async def health_check():
-        return {"status": "healthy", "functions": refract.function_count()}
+        return {"status": "healthy", "functions": registry.function_count()}
 
 
 def _register_static_files(app: FastAPI) -> None:

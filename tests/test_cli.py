@@ -218,7 +218,7 @@ class TestRefractCli:
 
     def _make_refract_with_function(self, sample_function_info):
         """Helper: build a Refract instance with one pre-loaded function."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         r._registry.append(sample_function_info)
         return r
@@ -229,14 +229,14 @@ class TestRefractCli:
 
     def test_cli_returns_click_group(self, sample_function_info):
         """Refract.cli() returns a Click Group."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         group = r.cli()
         assert isinstance(group, click.Group)
 
     def test_cli_has_standard_commands(self):
         """Click group includes list, serve, serve-api, serve-mcp."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         group = r.cli()
         assert "list" in group.commands
@@ -246,7 +246,7 @@ class TestRefractCli:
 
     def test_cli_group_name_in_help(self):
         """The CLI group help text includes the instance name."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("my-special-project")
         group = r.cli()
         runner = CliRunner()
@@ -256,7 +256,7 @@ class TestRefractCli:
 
     def test_cli_has_verbose_flag(self):
         """The Click group exposes --verbose / -v flag."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         group = r.cli()
         runner = CliRunner()
@@ -281,7 +281,7 @@ class TestRefractCli:
 
     def test_cli_list_empty_registry(self):
         """list command with empty registry shows header but no functions."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         group = r.cli()
         runner = CliRunner()
@@ -332,7 +332,7 @@ class TestRefractCli:
 
     def test_cli_only_includes_cli_interface_functions(self, sample_function_info):
         """Functions without 'cli' interface are not added as commands."""
-        from refract.registry import Refract
+        from refract import Refract
         api_only_func = FunctionInfo(
             name="api_only",
             func=lambda x: x,
@@ -354,7 +354,7 @@ class TestRefractCli:
 
     def test_command_decorator_registers_custom_command(self):
         """@refract.command() stores the command in _custom_commands."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
 
         @r.command()
@@ -369,7 +369,7 @@ class TestRefractCli:
 
     def test_command_decorator_default_name_uses_hyphens(self):
         """Function name underscores become hyphens in command name."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
 
         @r.command()
@@ -381,7 +381,7 @@ class TestRefractCli:
 
     def test_command_decorator_explicit_name(self):
         """Explicit name= overrides the function name."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
 
         @r.command(name="custom-name")
@@ -393,7 +393,7 @@ class TestRefractCli:
 
     def test_command_decorator_preserves_original_function(self):
         """@refract.command() returns the original function unchanged."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
 
         @r.command()
@@ -404,7 +404,7 @@ class TestRefractCli:
 
     def test_custom_commands_appear_in_cli_group(self):
         """Custom commands added via @refract.command() appear in cli()."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
 
         @r.command()
@@ -417,7 +417,7 @@ class TestRefractCli:
 
     def test_custom_command_executes_in_cli_group(self):
         """Custom commands added via @refract.command() are executable."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
 
         @r.command()
@@ -433,7 +433,7 @@ class TestRefractCli:
 
     def test_multiple_custom_commands(self):
         """Multiple @refract.command() decorators all appear in the group."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
 
         @r.command()
@@ -459,19 +459,19 @@ class TestRefractCli:
 
     def test_run_cli_returns_click_group(self):
         """run_cli property returns a Click Group."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         assert isinstance(r.run_cli, click.Group)
 
     def test_run_cli_is_callable(self):
         """run_cli returns a callable (required for pyproject.toml entry points)."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         assert callable(r.run_cli)
 
     def test_run_cli_returns_same_instance_on_repeated_access(self):
         """run_cli returns the same cached Click group on repeated access."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         first = r.run_cli
         second = r.run_cli
@@ -479,7 +479,7 @@ class TestRefractCli:
 
     def test_run_cli_includes_standard_commands(self):
         """run_cli group has the same commands as cli()."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         group = r.run_cli
         assert "list" in group.commands
@@ -492,27 +492,29 @@ class TestRefractCli:
     # ------------------------------------------------------------------
 
     @patch("uvicorn.run")
-    def test_serve_api_calls_uvicorn(self, mock_uvicorn):
+    @patch("refract.cli.create_api_app")
+    def test_serve_api_calls_uvicorn(self, mock_create_api, mock_uvicorn):
         """serve-api command invokes uvicorn.run with correct parameters."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
         mock_api_app = MagicMock()
-        r.api = MagicMock(return_value=mock_api_app)
+        mock_create_api.return_value = mock_api_app
 
         group = r.cli()
         runner = CliRunner()
         result = runner.invoke(group, ["serve-api", "--host", "0.0.0.0", "--port", "9000"])
 
         assert result.exit_code == 0
-        r.api.assert_called_once()
+        mock_create_api.assert_called_once_with(r)
         mock_uvicorn.assert_called_once_with(mock_api_app, host="0.0.0.0", port=9000)
 
     @patch("uvicorn.run")
-    def test_serve_api_default_host_port(self, mock_uvicorn):
+    @patch("refract.cli.create_api_app")
+    def test_serve_api_default_host_port(self, mock_create_api, mock_uvicorn):
         """serve-api uses default host 127.0.0.1 and port 8000."""
-        from refract.registry import Refract
+        from refract import Refract
         r = Refract("test-project")
-        r.api = MagicMock(return_value=MagicMock())
+        mock_create_api.return_value = MagicMock()
 
         group = r.cli()
         runner = CliRunner()
@@ -529,7 +531,7 @@ class TestRefractCli:
 
     def test_two_refract_instances_have_independent_cli_groups(self, sample_function_info):
         """Each Refract instance gets its own isolated CLI group."""
-        from refract.registry import Refract
+        from refract import Refract
         r1 = Refract("project-a")
         r1._registry.append(sample_function_info)
 
