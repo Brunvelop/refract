@@ -429,8 +429,12 @@ class Refract:
             # pyproject.toml
             [project.scripts]
             my-project = "my_project.app:app.run_cli"
+
+        The result is cached so repeated property accesses return the same object.
         """
-        return self.cli()
+        if not hasattr(self, '_cli_cached'):
+            self._cli_cached = self.cli()
+        return self._cli_cached
 
     def mcp(self):
         """Create and return a FastAPI application with API + MCP integration.

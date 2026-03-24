@@ -14,8 +14,6 @@ class ThirdPartyLogFilter(logging.Filter):
     NOISY_MODULES = [
         'asyncio',
         'sse_starlette',
-        'LiteLLM',
-        'litellm',
         'httpcore',
         'httpx',
         'mcp',
@@ -95,8 +93,6 @@ def _silence_third_party_loggers():
     """Silence noisy third-party loggers by setting them to WARNING level."""
     noisy_loggers = [
         'asyncio',
-        'LiteLLM',
-        'litellm',
         'httpcore',
         'httpx',
         'sse_starlette',

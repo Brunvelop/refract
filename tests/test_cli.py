@@ -469,6 +469,14 @@ class TestRefractCli:
         r = Refract("test-project")
         assert callable(r.run_cli)
 
+    def test_run_cli_returns_same_instance_on_repeated_access(self):
+        """run_cli returns the same cached Click group on repeated access."""
+        from refract.registry import Refract
+        r = Refract("test-project")
+        first = r.run_cli
+        second = r.run_cli
+        assert first is second
+
     def test_run_cli_includes_standard_commands(self):
         """run_cli group has the same commands as cli()."""
         from refract.registry import Refract
