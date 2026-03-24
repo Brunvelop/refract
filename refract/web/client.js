@@ -1,19 +1,19 @@
 /**
  * client.js
- * Cliente HTTP puro para interactuar con el registry de Refract.
+ * Pure HTTP client for interacting with the Refract registry.
  *
- * CAPA 1: Vanilla JS, sin dependencia de Lit ni del DOM.
- * Puede usarse en cualquier contexto (componentes Lit, vanilla JS, tests, etc.).
+ * LAYER 1: Vanilla JS, no dependency on Lit or the DOM.
+ * Can be used in any context (Lit components, vanilla JS, tests, etc.).
  *
- * Responsabilidades:
- * - Cargar schemas del registry  (/functions/details)
- * - Realizar llamadas HTTP (GET/POST) a funciones registradas
- * - Consumir streams SSE como async generators
- * - Procesar/coercionar tipos de parámetros según el schema
+ * Responsibilities:
+ * - Load schemas from the registry (/functions/details)
+ * - Perform HTTP calls (GET/POST) to registered functions
+ * - Consume SSE streams as async generators
+ * - Process/coerce parameter types according to the schema
  */
 export class RefractClient {
     constructor() {
-        /** @type {Object.<string, Object>|null} Schemas cargados desde /functions/details */
+        /** @type {Object.<string, Object>|null} Schemas loaded from /functions/details */
         this._schemas = null;
     }
 
@@ -22,10 +22,10 @@ export class RefractClient {
     // ========================================================================
 
     /**
-     * Carga todos los schemas del registry desde /functions/details.
-     * El resultado se cachea en this._schemas.
+     * Loads all schemas from the registry via /functions/details.
+     * The result is cached in this._schemas.
      *
-     * @returns {Promise<Object.<string, Object>>} Mapa funcName → funcInfo
+     * @returns {Promise<Object.<string, Object>>} Map of funcName → funcInfo
      */
     async loadSchemas() {
         const response = await fetch('/functions/details');
@@ -36,8 +36,8 @@ export class RefractClient {
     }
 
     /**
-     * Obtiene el schema (funcInfo) de una función concreta.
-     * Requiere haber llamado loadSchemas() previamente, o devuelve null.
+     * Returns the schema (funcInfo) for a specific function.
+     * Requires loadSchemas() to have been called first, or returns null.
      *
      * @param {string} funcName
      * @returns {Object|null}
@@ -52,19 +52,19 @@ export class RefractClient {
     // ========================================================================
 
     /**
-     * Ejecuta una llamada HTTP a una función registrada.
-     * Soporta GET y POST según el http_methods del schema.
-     * Retorna la respuesta raw del servidor (el "envelope").
+     * Executes an HTTP call to a registered function.
+     * Supports GET and POST based on the http_methods in the schema.
+     * Returns the raw server response (the "envelope").
      *
-     * @param {string} funcName - Nombre de la función registrada
-     * @param {object} params - Parámetros para la función
-     * @param {object|null} funcInfo - Schema de la función (opcional; si no se pasa, se carga automáticamente)
-     * @returns {Promise<any>} Respuesta JSON del servidor
+     * @param {string} funcName - Name of the registered function
+     * @param {object} params - Parameters for the function
+     * @param {object|null} funcInfo - Function schema (optional; auto-loaded if not provided)
+     * @returns {Promise<any>} JSON response from the server
      */
     async call(funcName, params, funcInfo = null) {
         let info = funcInfo || this.getSchema(funcName);
 
-        // Auto-cargar schemas si no disponibles
+        // Auto-load schemas if not available
         if (!info) {
             const schemas = await this.loadSchemas();
             info = schemas[funcName];
@@ -117,13 +117,13 @@ export class RefractClient {
     // ========================================================================
 
     /**
-     * Async generator que consume un endpoint SSE y produce eventos parseados.
+     * Async generator that consumes an SSE endpoint and yields parsed events.
      *
-     * @param {string} endpoint - Nombre del endpoint (URL: /{endpoint})
-     * @param {object} params - Parámetros a enviar como JSON body
-     * @param {object|null} funcInfo - FuncInfo para procesamiento de tipos (opcional)
-     * @param {object} options - Opciones adicionales (e.g. { signal: AbortSignal })
-     * @yields {{ event: string, data: object|string }} Eventos SSE parseados
+     * @param {string} endpoint - Endpoint name (URL: /{endpoint})
+     * @param {object} params - Parameters to send as JSON body
+     * @param {object|null} funcInfo - FuncInfo for type processing (optional)
+     * @param {object} options - Additional options (e.g. { signal: AbortSignal })
+     * @yields {{ event: string, data: object|string }} Parsed SSE events
      */
     async *stream(endpoint, params, funcInfo = null, options = {}) {
         const processedParams = this._processParams(params, funcInfo);
@@ -179,7 +179,7 @@ export class RefractClient {
             }
         }
 
-        // Procesar contenido restante del buffer tras fin de stream
+        // Process remaining buffer content after stream ends
         if (buffer) {
             if (buffer.startsWith('event: ')) {
                 currentEvent = buffer.slice(7).trim();
@@ -188,7 +188,7 @@ export class RefractClient {
             }
         }
 
-        // Evento pendiente si stream termina sin \n\n final
+        // Flush pending event if stream ends without trailing \n\n
         if (currentEvent && currentData) {
             try {
                 yield { event: currentEvent, data: JSON.parse(currentData) };
@@ -203,12 +203,12 @@ export class RefractClient {
     // ========================================================================
 
     /**
-     * Procesa parámetros aplicando conversiones de tipo según el schema (funcInfo).
-     * Convierte strings a JSON para tipos complejos (dict/list), int, float.
+     * Processes parameters applying type conversions according to the schema (funcInfo).
+     * Converts strings to JSON for complex types (dict/list), int, float.
      *
-     * @param {object} params - Parámetros crudos
-     * @param {object|null} funcInfo - Schema de la función (para conocer tipos)
-     * @returns {object} Parámetros con tipos correctos
+     * @param {object} params - Raw parameters
+     * @param {object|null} funcInfo - Function schema (used to determine types)
+     * @returns {object} Parameters with correct types
      */
     _processParams(params, funcInfo = null) {
         const processedParams = {};
@@ -232,7 +232,7 @@ export class RefractClient {
     }
 
     /**
-     * Determina si un tipo de parámetro es complejo (dict, list, JSON).
+     * Determines whether a parameter type is complex (dict, list, JSON).
      *
      * @param {string|null} type
      * @returns {boolean}

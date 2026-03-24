@@ -1,24 +1,24 @@
 /**
  * element.js
- * UI genérica tipo "Tarjeta" para funciones del registry de Refract.
+ * Generic "Card" UI for functions in the Refract registry.
  *
- * CAPA 3: Extiende AutoFunctionController con presentación visual.
- * Usa Shadow DOM. NO DISEÑADA PARA SER EXTENDIDA.
+ * LAYER 3: Extends AutoFunctionController with visual presentation.
+ * Uses Shadow DOM. NOT DESIGNED TO BE EXTENDED.
  *
- * Responsabilidades:
- * - Renderizar formularios automáticos basados en el schema (funcInfo)
- * - Mostrar resultados y estados de ejecución
- * - Adaptar el tipo de input según el tipo de parámetro
+ * Responsibilities:
+ * - Render automatic forms based on the schema (funcInfo)
+ * - Display results and execution states
+ * - Adapt the input type based on the parameter type
  */
 
 import { css, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
 import { AutoFunctionController } from './controller.js';
 
 /**
- * UI GENÉRICA (TARJETA)
- * Implementación visual estándar de AutoFunctionController.
- * Usa Shadow DOM.
- * NO DISEÑADA PARA SER EXTENDIDA.
+ * GENERIC UI (CARD)
+ * Standard visual implementation of AutoFunctionController.
+ * Uses Shadow DOM.
+ * NOT DESIGNED TO BE EXTENDED.
  */
 export class AutoFunctionElement extends AutoFunctionController {
     static styles = css`
@@ -185,7 +185,7 @@ export class AutoFunctionElement extends AutoFunctionController {
     }
 }
 
-// Registrar custom element
+// Register custom element
 if (!customElements.get('auto-function-element')) {
     customElements.define('auto-function-element', AutoFunctionElement);
 }

@@ -1,37 +1,37 @@
 /**
  * controller.js
- * Controlador base con lógica pura para elementos de función de Refract.
+ * Base controller with pure logic for Refract function elements.
  *
- * CAPA 2: LitElement con estado, validación y comunicación con la API.
- * Desacoplado de la presentación visual.
+ * LAYER 2: LitElement with state, validation, and API communication.
+ * Decoupled from visual presentation.
  *
- * Responsabilidades:
- * - Gestionar el estado de parámetros, resultado y ejecución
- * - Validar parámetros contra el schema (funcInfo)
- * - Delegar las llamadas HTTP/SSE a RefractClient (Capa 1)
- * - Emitir custom events para el ciclo de vida de ejecución
+ * Responsibilities:
+ * - Manage parameter, result, and execution state
+ * - Validate parameters against the schema (funcInfo)
+ * - Delegate HTTP/SSE calls to RefractClient (Layer 1)
+ * - Emit custom events for the execution lifecycle
  */
 
 import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
 import { RefractClient } from './client.js';
 
 /**
- * CONTROLADOR BASE (LÓGICA PURA)
- * Maneja el estado, la validación y la comunicación con la API.
- * Desacoplado de la presentación visual.
+ * BASE CONTROLLER (PURE LOGIC)
+ * Handles state, validation, and API communication.
+ * Decoupled from visual presentation.
  */
 export class AutoFunctionController extends LitElement {
     static properties = {
-        // Configuración
+        // Configuration
         funcName: { type: String, attribute: 'func-name' },
         funcInfo: { type: Object, state: true },
 
-        // Estado
-        params: { type: Object, state: true }, // Valores actuales de los parámetros
+        // State
+        params: { type: Object, state: true }, // Current parameter values
         result: { type: Object, state: true },
-        // Respuesta completa del backend (envelope)
+        // Full backend response (envelope)
         envelope: { type: Object, state: true },
-        // Metadata conveniente (derivada del envelope)
+        // Convenience metadata (derived from envelope)
         success: { type: Boolean, state: true },
         message: { type: String, state: true },
         errors: { type: Object, state: true },
@@ -59,14 +59,14 @@ export class AutoFunctionController extends LitElement {
         this._errorMessage = '';
         this._isExecuting = false;
 
-        // Capa 1: cliente HTTP puro (sin Lit)
+        // Layer 1: pure HTTP client (no Lit)
         this._client = new RefractClient();
     }
 
     async connectedCallback() {
         super.connectedCallback();
 
-        // 1. Si tengo nombre pero no info, cargarla del registry
+        // 1. If we have a name but no info, load it from the registry
         if (this.funcName && !this.funcInfo) {
             try {
                 await this.loadFunctionInfo();
@@ -76,7 +76,7 @@ export class AutoFunctionController extends LitElement {
             }
         }
 
-        // 2. Inicializar params con defaults si funcInfo ya está cargado
+        // 2. Initialize params with defaults if funcInfo is already loaded
         if (this.funcInfo && Object.keys(this.params).length === 0) {
             this._initParamsWithDefaults();
         }
@@ -97,7 +97,7 @@ export class AutoFunctionController extends LitElement {
         this.funcInfo = info;
     }
 
-    // Si funcInfo cambia, reinicializar defaults
+    // If funcInfo changes, re-initialize defaults
     updated(changedProperties) {
         if (changedProperties.has('funcInfo') && this.funcInfo) {
             this._initParamsWithDefaults();
@@ -119,16 +119,16 @@ export class AutoFunctionController extends LitElement {
     // ========================================================================
 
     /**
-     * Establece el valor de un parámetro y actualiza el estado.
+     * Sets the value of a parameter and updates the state.
      */
     setParam(name, value) {
-        // Actualización inmutable para disparar reactividad de Lit
+        // Immutable update to trigger Lit reactivity
         this.params = {
             ...this.params,
             [name]: value
         };
 
-        // Limpiar error asociado si existe
+        // Clear associated error if it exists
         if (this.errors[name]) {
             const newErrors = { ...this.errors };
             delete newErrors[name];
@@ -155,15 +155,15 @@ export class AutoFunctionController extends LitElement {
     }
 
     /**
-     * Devuelve el envelope completo del backend.
-     * Útil para consumidores que necesiten metadata (reasoning/trajectory/history, etc.).
+     * Returns the full backend envelope.
+     * Useful for consumers that need metadata (reasoning/trajectory/history, etc.).
      */
     getEnvelope() {
         return this.envelope;
     }
 
     /**
-     * Devuelve el payload real (alias de result).
+     * Returns the actual payload (alias for result).
      */
     getPayload() {
         return this.result;
@@ -178,7 +178,7 @@ export class AutoFunctionController extends LitElement {
     // ========================================================================
 
     async execute() {
-        // 1. Validar estado (params vs funcInfo)
+        // 1. Validate state (params vs funcInfo)
         if (!this.validate()) {
             this._errorMessage = 'Please fill all required fields and fix errors.';
             this._setStatus('error', 'Validation error');
@@ -207,10 +207,10 @@ export class AutoFunctionController extends LitElement {
             // 4. Call API
             const data = await this.callAPI(this.params);
 
-            // Guardar envelope completo
+            // Store full envelope
             this.envelope = data;
 
-            // Derivar metadata + payload estandarizado
+            // Derive metadata + standardized payload
             const hasEnvelopeShape = (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'result'));
             this.result = hasEnvelopeShape ? data.result : data;
 
@@ -222,8 +222,8 @@ export class AutoFunctionController extends LitElement {
                 this.message = '';
             }
 
-            // Si el backend devuelve success=false, lo tratamos como ejecución fallida
-            // (pero NO lanzamos excepción: queda a criterio del consumidor)
+            // If the backend returns success=false, treat it as a failed execution
+            // (but do NOT throw: left to the consumer's discretion)
             if (this.success === false) {
                 this._errorMessage = this.message || 'Execution error';
                 this._setStatus('error', 'Execution error');
@@ -261,8 +261,8 @@ export class AutoFunctionController extends LitElement {
     }
 
     /**
-     * Valida los parámetros actuales contra la definición (funcInfo).
-     * NO depende del DOM.
+     * Validates the current parameters against the definition (funcInfo).
+     * Does NOT depend on the DOM.
      */
     validate() {
         let isValid = true;
@@ -289,7 +289,7 @@ export class AutoFunctionController extends LitElement {
                 } else if (param.type === 'float') {
                     if (isNaN(parseFloat(value))) error = 'Must be a decimal number';
                 } else if (this._isComplexType(param.type)) {
-                    // Si es string (desde textarea), intentar parsear
+                    // If it's a string (from textarea), try to parse it
                     if (typeof value === 'string') {
                         try {
                             JSON.parse(value);
@@ -311,11 +311,11 @@ export class AutoFunctionController extends LitElement {
     }
 
     /**
-     * Procesa parámetros aplicando conversiones de tipo según la definición de funcInfo.
-     * Delega a RefractClient._processParams(); mantiene this.funcInfo como fallback.
-     * @param {object} params - Parámetros crudos
-     * @param {object|null} funcInfoOverride - FuncInfo alternativo (para streaming con otra función)
-     * @returns {object} Parámetros procesados con tipos correctos
+     * Processes parameters applying type conversions according to the funcInfo definition.
+     * Delegates to RefractClient._processParams(); uses this.funcInfo as fallback.
+     * @param {object} params - Raw parameters
+     * @param {object|null} funcInfoOverride - Alternative funcInfo (for streaming with a different function)
+     * @returns {object} Processed parameters with correct types
      */
     _processParams(params, funcInfoOverride = null) {
         return this._client._processParams(params, funcInfoOverride || this.funcInfo);
@@ -326,25 +326,25 @@ export class AutoFunctionController extends LitElement {
     }
 
     /**
-     * Async generator que consume un endpoint SSE y produce eventos parseados.
-     * Delega a RefractClient.stream().
-     * @param {string} endpoint - Nombre del endpoint (se usa como URL: /{endpoint})
-     * @param {object} params - Parámetros a enviar como JSON body
-     * @param {object|null} funcInfo - FuncInfo para procesamiento de tipos (opcional)
-     * @yields {{ event: string, data: object|string }} Eventos SSE parseados
+     * Async generator that consumes an SSE endpoint and yields parsed events.
+     * Delegates to RefractClient.stream().
+     * @param {string} endpoint - Endpoint name (used as URL: /{endpoint})
+     * @param {object} params - Parameters to send as JSON body
+     * @param {object|null} funcInfo - FuncInfo for type processing (optional)
+     * @yields {{ event: string, data: object|string }} Parsed SSE events
      */
     async *callStreamAPI(endpoint, params, funcInfo = null, options = {}) {
         yield* this._client.stream(endpoint, params, funcInfo || this.funcInfo, options);
     }
 
     /**
-     * Helper estático para ejecutar funciones sin crear elementos en el DOM.
-     * Útil para llamadas inter-funciones (ej: chat llamando a calculate_context_usage).
+     * Static helper to execute functions without creating DOM elements.
+     * Useful for inter-function calls (e.g. chat calling calculate_context_usage).
      *
-     * @param {string} funcName - Nombre de la función registrada
-     * @param {object} params - Parámetros para la función
-     * @returns {Promise<any>} - Resultado de la ejecución
-     * @throws {Error} - Si la función no existe o falla la ejecución
+     * @param {string} funcName - Name of the registered function
+     * @param {object} params - Parameters for the function
+     * @returns {Promise<any>} - Execution result
+     * @throws {Error} - If the function does not exist or execution fails
      *
      * @example
      * const result = await AutoFunctionController.executeFunction('my_func', { x: 1 });
@@ -358,7 +358,7 @@ export class AutoFunctionController extends LitElement {
 
             const data = await client.call(funcName, params, funcInfo);
 
-            // Misma lógica de unwrap que execute(): extraer payload del envelope
+            // Same unwrap logic as execute(): extract payload from envelope
             const hasEnvelopeShape = (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'result'));
             return hasEnvelopeShape ? data.result : data;
         } catch (error) {
@@ -367,7 +367,7 @@ export class AutoFunctionController extends LitElement {
         }
     }
 
-    // Helpers internos
+    // Internal helpers
     _isComplexType(type) {
         if (!type) return false;
         return /\b(dict|list)\b|json/i.test(type);
@@ -378,13 +378,13 @@ export class AutoFunctionController extends LitElement {
         this._statusMessage = message;
     }
 
-    // Default render: nada visual, solo slot
+    // Default render: nothing visual, just slot
     render() {
         return html`<slot></slot>`;
     }
 }
 
-// Registrar custom element
+// Register custom element
 if (!customElements.get('auto-function-controller')) {
     customElements.define('auto-function-controller', AutoFunctionController);
 }

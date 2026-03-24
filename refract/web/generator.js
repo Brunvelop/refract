@@ -1,19 +1,19 @@
 /**
  * generator.js
- * Generador automático de Custom Elements para funciones del registry de Refract.
+ * Automatic Custom Element generator for functions in the Refract registry.
  *
- * Auto-consulta /functions/details y registra un custom element por cada función.
- * Elemento generado: <auto-{funcName}> → instancia de AutoFunctionElement con
- * funcName y funcInfo ya inyectados.
+ * Auto-queries /functions/details and registers one custom element per function.
+ * Generated element: <auto-{funcName}> → instance of AutoFunctionElement with
+ * funcName and funcInfo already injected.
  *
- * Se inicializa automáticamente al cargar el script.
+ * Initializes automatically when the script is loaded.
  */
 
 import { AutoFunctionElement } from './element.js';
 
 /**
- * GENERADOR DINÁMICO
- * Fábrica que crea y registra custom elements basados en AutoFunctionElement.
+ * DYNAMIC GENERATOR
+ * Factory that creates and registers custom elements based on AutoFunctionElement.
  */
 export class AutoElementGenerator {
     constructor() {
@@ -25,9 +25,9 @@ export class AutoElementGenerator {
         try {
             await this.loadFunctions();
             this.generateAllElements();
-            console.log(`✅ ${this.registeredElements.size} custom elements generados`);
+            console.log(`✅ ${this.registeredElements.size} custom elements generated`);
         } catch (error) {
-            console.error('❌ Error inicializando auto-element-generator:', error);
+            console.error('❌ Error initializing auto-element-generator:', error);
             throw error;
         }
     }
@@ -49,7 +49,7 @@ export class AutoElementGenerator {
         const elementName = `auto-${funcName.replace(/_/g, '-')}`;
         if (customElements.get(elementName)) return;
 
-        // Extendemos de AutoFunctionElement (que extiende del Controller)
+        // Extend AutoFunctionElement (which extends the Controller)
         const ElementClass = class extends AutoFunctionElement {
             constructor() {
                 super();
@@ -63,7 +63,7 @@ export class AutoElementGenerator {
     }
 }
 
-// Inicialización automática
+// Automatic initialization
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', async () => {
         window.autoElementGenerator = new AutoElementGenerator();
