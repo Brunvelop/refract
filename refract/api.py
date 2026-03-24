@@ -9,7 +9,7 @@ from fastapi.routing import APIRouter
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, create_model
 
-from refract.models import FunctionInfo, FunctionSchema
+from refract.models import FunctionInfo
 from refract.registry import Registry
 from refract.sse import _create_stream_handler
 
@@ -104,9 +104,12 @@ def create_api_app(registry: Registry) -> FastAPI:
         version=_version,
     )
 
-    functions = registry.get_all_functions()
-    _add_function_endpoints(app, functions, registry.get_stream_func)
-    _register_standard_endpoints(app, registry)
+    # Reuse the router (dynamic endpoints + /functions/details + /health)
+    router = create_router(registry)
+    app.include_router(router)
+
+    # App-mode exclusives: HTML pages + static files
+    _register_html_pages(app)
     _register_static_files(app)
 
     return app
@@ -192,12 +195,14 @@ def _add_function_endpoints(
     logger.info(f"Registered {len(api_functions)} dynamic endpoints")
 
 
-def _register_standard_endpoints(app: FastAPI, registry: Registry) -> None:
-    """Register standard endpoints bound to a Registry instance.
+def _register_html_pages(app: FastAPI) -> None:
+    """Register HTML page routes for the web UI (root and /functions).
+
+    These are app-mode exclusives — ``create_router`` does not include them
+    since they are not meaningful when the router is mounted on an existing app.
 
     Args:
-        app: FastAPI application to register endpoints on.
-        registry: Registry instance whose data is used for data endpoints.
+        app: FastAPI application to register HTML routes on.
     """
     current_dir = os.path.dirname(__file__)
     views_dir = os.path.join(current_dir, "web", "views")
@@ -209,15 +214,6 @@ def _register_standard_endpoints(app: FastAPI, registry: Registry) -> None:
     @app.get("/functions")
     async def functions_ui():
         return FileResponse(os.path.join(views_dir, "functions.html"))
-
-    @app.get("/functions/details")
-    async def list_functions_details() -> dict[str, dict[str, FunctionSchema]]:
-        schemas = registry.get_all_schemas()
-        return {"functions": {s.name: s for s in schemas}}
-
-    @app.get("/health")
-    async def health_check():
-        return {"status": "healthy", "functions": registry.function_count()}
 
 
 def _register_static_files(app: FastAPI) -> None:

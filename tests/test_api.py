@@ -24,7 +24,6 @@ from refract.api import (
     create_router,
     create_api_app,
     _add_function_endpoints,
-    _register_standard_endpoints,
 )
 from refract.models import GenericOutput, FunctionInfo, ParamSchema
 from refract import Refract
