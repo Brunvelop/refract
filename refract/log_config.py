@@ -47,7 +47,9 @@ def configure_cli_logging(verbose: bool = False) -> None:
         force=True
     )
 
-    logging.getLogger().addFilter(ThirdPartyLogFilter())
+    root = logging.getLogger()
+    if not any(isinstance(f, ThirdPartyLogFilter) for f in root.filters):
+        root.addFilter(ThirdPartyLogFilter())
 
     refract_logger = logging.getLogger('refract')
     refract_logger.setLevel(base_level)
@@ -68,4 +70,6 @@ def configure_api_logging() -> None:
         force=True
     )
 
-    logging.getLogger().addFilter(ThirdPartyLogFilter())
+    root = logging.getLogger()
+    if not any(isinstance(f, ThirdPartyLogFilter) for f in root.filters):
+        root.addFilter(ThirdPartyLogFilter())

@@ -131,6 +131,18 @@ class TestConfigureCliLogging:
         configure_cli_logging(verbose=True)
         assert logging.getLogger().level == logging.DEBUG
 
+    def test_configure_cli_logging_no_duplicate_filters(self):
+        """Calling configure_cli_logging multiple times does not add duplicate filters."""
+        root = logging.getLogger()
+        root.filters = [f for f in root.filters if not isinstance(f, ThirdPartyLogFilter)]
+
+        configure_cli_logging(verbose=False)
+        configure_cli_logging(verbose=True)
+        configure_cli_logging(verbose=False)
+
+        filter_count = sum(1 for f in root.filters if isinstance(f, ThirdPartyLogFilter))
+        assert filter_count == 1
+
 
 # ============================================================================
 # configure_api_logging
@@ -165,3 +177,15 @@ class TestConfigureApiLogging:
         configure_api_logging()
         configure_api_logging()
         assert logging.getLogger().level == logging.DEBUG
+
+    def test_configure_api_logging_no_duplicate_filters(self):
+        """Calling configure_api_logging multiple times does not add duplicate filters."""
+        root = logging.getLogger()
+        root.filters = [f for f in root.filters if not isinstance(f, ThirdPartyLogFilter)]
+
+        configure_api_logging()
+        configure_api_logging()
+        configure_api_logging()
+
+        filter_count = sum(1 for f in root.filters if isinstance(f, ThirdPartyLogFilter))
+        assert filter_count == 1
