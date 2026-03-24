@@ -38,6 +38,7 @@ build-backend = "setuptools.build_meta"
 include = ["refract*"]
 
 [tool.setuptools.package-data]
+"refract" = ["py.typed"]
 "refract.web" = [
     "views/*.html",
     "*.js",
