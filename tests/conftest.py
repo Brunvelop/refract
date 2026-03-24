@@ -6,7 +6,7 @@ from unittest.mock import Mock, MagicMock, patch
 import logging
 
 from refract.models import ParamSchema, FunctionInfo, GenericOutput
-from refract.registry import clear_registry, get_all_functions, get_function_by_name
+from refract.registry import _clear_pending
 
 # Configure logging for tests
 logging.basicConfig(level=logging.DEBUG)
@@ -14,10 +14,10 @@ logging.basicConfig(level=logging.DEBUG)
 
 @pytest.fixture(autouse=True)
 def cleanup_registry():
-    """Automatically clear registry before and after each test to ensure isolation."""
-    clear_registry()
+    """Automatically clear pending buffer before and after each test to ensure isolation."""
+    _clear_pending()
     yield
-    clear_registry()
+    _clear_pending()
 
 
 @pytest.fixture
@@ -80,18 +80,6 @@ def mock_fastapi_app():
     app.mount = Mock()
     app.routes = []
     return app
-
-
-@pytest.fixture
-def populated_registry(sample_function_info):
-    """Registry with sample function for integration testing.
-
-    Note: Uses internal registry access for test setup only.
-    Tests should use public API (get_function_by_name, get_all_functions) to verify.
-    """
-    from refract.registry import _registry
-    _registry.append(sample_function_info)
-    return None
 
 
 @pytest.fixture

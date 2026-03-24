@@ -27,7 +27,7 @@ from refract.api import (
     _register_standard_endpoints_for_refract,
 )
 from refract.models import GenericOutput, FunctionInfo, ParamSchema
-from refract.registry import _registry, clear_registry, Refract
+from refract.registry import Refract
 
 
 # ---------------------------------------------------------------------------
@@ -1017,25 +1017,25 @@ class TestCreateApiAppForRefract:
         assert len(routes) == 1
 
     def test_api_app_isolated_from_global_registry(self):
-        """Refract.api() uses instance registry, not the global registry."""
-        from refract.registry import register_function
+        """Two Refract instances are isolated — each serves only its own functions."""
+        func_a = _make_api_func_info("service_a_fn")
+        func_b = _make_api_func_info("service_b_fn")
 
-        @register_function()
-        def global_only_fn(z: int) -> GenericOutput:
-            """Global only."""
-            return GenericOutput(result=z)
+        refract_a = Refract("service-a")
+        refract_a._registry.append(func_a)
 
-        instance_func = _make_api_func_info("instance_only_fn")
-        refract = Refract("isolated")
-        refract._registry.append(instance_func)
+        refract_b = Refract("service-b")
+        refract_b._registry.append(func_b)
 
-        app = create_api_app_for_refract(refract)
-        client = TestClient(app)
+        app_a = create_api_app_for_refract(refract_a)
+        client_a = TestClient(app_a)
 
-        resp = client.get("/instance_only_fn?x=5")
+        # service-a serves its own function
+        resp = client_a.get("/service_a_fn?x=5")
         assert resp.status_code == 200
 
-        resp = client.get("/global_only_fn?z=1")
+        # service-a does NOT serve service-b's function
+        resp = client_a.get("/service_b_fn?x=5")
         assert resp.status_code == 404
 
     def test_api_app_full_integration(self):

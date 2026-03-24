@@ -4,17 +4,17 @@ Uses automatic parameter inference from function signatures and docstrings.
 
 Example::
 
-    from refract import register_function, GenericOutput
+    from refract import register_function
 
     @register_function(http_methods=["GET", "POST"])
-    def my_function(x: int, y: str = "default") -> GenericOutput:
+    def my_function(x: int, y: str = "default") -> MyResponse:
         '''Adds two numbers together.
 
         Args:
             x: First number
             y: Second number or string
         '''
-        return GenericOutput(result=x + y, success=True)
+        return MyResponse(result=x + y)
 
     # Entry point
     from refract import Refract
@@ -40,10 +40,7 @@ logger = logging.getLogger(__name__)
 
 # --- PRIVATE STATE ---
 
-_registry: list[FunctionInfo] = []
-_stream_registry: dict[str, Callable] = {}
-
-# Buffer for pending registrations (used by Refract._discover())
+# Buffer for pending registrations (used by Refract._drain_pending())
 _pending_registrations: list[FunctionInfo] = []
 _pending_stream_funcs: dict[str, Callable] = {}
 
@@ -80,19 +77,16 @@ def register_function(
             info = _generate_function_info(func, http_methods, interfaces)
             info.streaming = streaming
 
-            # Store stream_func in separate registry (not in the Pydantic model)
-            if stream_func is not None:
-                _stream_registry[info.name] = stream_func
+            # Check for duplicates against pending buffer only
+            if any(f.name == info.name for f in _pending_registrations):
+                raise RegistryError(f"Function '{info.name}' is already registered")
 
-            # Store stream_func in pending buffer too
+            _pending_registrations.append(info)
+
+            # Store stream_func in pending buffer
             if stream_func is not None:
                 _pending_stream_funcs[info.name] = stream_func
 
-            # Check for duplicates
-            if any(f.name == info.name for f in _registry):
-                raise RegistryError(f"Function '{info.name}' is already registered")
-            _registry.append(info)
-            _pending_registrations.append(info)
             logger.debug(f"Registered '{info.name}' with methods {info.http_methods}, streaming={streaming}")
         except Exception as e:
             raise RegistryError(f"Failed to register function '{func.__name__}': {e}") from e
@@ -100,75 +94,10 @@ def register_function(
     return decorator
 
 
-def get_all_functions() -> list[FunctionInfo]:
-    """Get all registered functions.
-
-    Returns:
-        List of all registered FunctionInfo objects.
-    """
-    return list(_registry)
-
-
-def get_functions_for_interface(interface: Interface) -> list[FunctionInfo]:
-    """Filter registered functions by interface ("api", "cli", or "mcp").
-
-    Args:
-        interface: The interface to filter by.
-
-    Returns:
-        List of FunctionInfo objects that support the given interface.
-    """
-    return [info for info in _registry if interface in info.interfaces]
-
-
-def get_all_schemas() -> list[FunctionSchema]:
-    """Get serializable schemas for all registered functions.
-
-    Returns:
-        List of FunctionSchema objects for API serialization.
-    """
-    return [info.to_schema() for info in _registry]
-
-
-def get_stream_func(name: str) -> Callable | None:
-    """Get the streaming function for a registered function.
-
-    Args:
-        name: The name of the registered function.
-
-    Returns:
-        The streaming callable if found, None otherwise.
-    """
-    return _stream_registry.get(name)
-
-
-def clear_registry() -> None:
-    """Clear registry, pending buffer. Used for testing."""
-    _registry.clear()
-    _stream_registry.clear()
+def _clear_pending() -> None:
+    """Clear pending buffers. Used for testing."""
     _pending_registrations.clear()
     _pending_stream_funcs.clear()
-
-
-def function_count() -> int:
-    """Return the number of registered functions.
-
-    Returns:
-        Number of functions in the registry.
-    """
-    return len(_registry)
-
-
-def get_function_by_name(name: str) -> FunctionInfo | None:
-    """Get a function by its name.
-
-    Args:
-        name: The name of the function to retrieve.
-
-    Returns:
-        FunctionInfo if found, None otherwise.
-    """
-    return next((f for f in _registry if f.name == name), None)
 
 
 # --- PRIVATE IMPLEMENTATION ---
@@ -294,11 +223,11 @@ class Refract:
     The ``discover`` flow uses the same buffer pattern as Celery:
     - ``@register_function()`` decorators fire when modules are imported,
       writing to the global ``_pending_registrations`` buffer.
-    - ``Refract._discover()`` imports the requested packages, then
-      *collects* everything in the buffer into this instance and clears it.
+    - ``Refract.__init__`` always calls ``_drain_pending()`` at the end,
+      which collects everything in the buffer into this instance and clears it.
 
-    All existing module-level helpers (``get_all_functions``, etc.) continue
-    to work via the global ``_registry`` and are unaffected by Refract instances.
+    This means ``Refract()`` without ``discover`` will also drain any pending
+    registrations that were decorated before instantiation.
     """
 
     def __init__(self, name: str, discover: list[str] | None = None) -> None:
@@ -318,9 +247,18 @@ class Refract:
         if discover:
             self._discover(discover)
 
+        self._drain_pending()
+
     # ------------------------------------------------------------------
     # Discovery
     # ------------------------------------------------------------------
+
+    def _drain_pending(self) -> None:
+        """Drain the global pending buffer into this instance's registry."""
+        self._registry.extend(_pending_registrations)
+        self._stream_registry.update(_pending_stream_funcs)
+        _pending_registrations.clear()
+        _pending_stream_funcs.clear()
 
     def _discover(self, packages: list[str], strict: bool = False) -> None:
         """Import modules in *packages* and collect pending registrations.
@@ -330,8 +268,9 @@ class Refract:
         2. Skip modules that don't contain ``@register_function`` (AST scan).
         3. Import each qualifying module — this fires the decorators, which
            write to the global ``_pending_registrations`` buffer.
-        4. After all imports, drain the buffer into ``self._registry`` and
-           clear it so the next Refract instance starts with a clean slate.
+
+        Note: draining the buffer is handled by ``_drain_pending()``, which
+        ``__init__`` always calls after ``_discover``.
 
         Args:
             packages: List of dotted package names to scan.
@@ -380,13 +319,7 @@ class Refract:
                         f"[refract:{self._name}]   ⚠️  {module_name} — skipped ({type(e).__name__}: {e})"
                     )
 
-        # Drain pending buffer into this instance's registry
-        self._registry.extend(_pending_registrations)
-        self._stream_registry.update(_pending_stream_funcs)
-        _pending_registrations.clear()
-        _pending_stream_funcs.clear()
-
-        total_funcs = len(self._registry)
+        total_funcs = len(self._registry) + len(_pending_registrations)
         logger.info(
             f"[refract:{self._name}] Total: {total_funcs} function{'s' if total_funcs != 1 else ''} registered"
             + (f", {len(failed)} module{'s' if len(failed) != 1 else ''} skipped" if failed else "")
@@ -399,7 +332,7 @@ class Refract:
             )
 
     # ------------------------------------------------------------------
-    # Instance-level query API (mirrors the module-level public API)
+    # Instance-level query API
     # ------------------------------------------------------------------
 
     def get_all_functions(self) -> list[FunctionInfo]:
@@ -439,7 +372,7 @@ class Refract:
         return len(self._registry)
 
     def clear(self) -> None:
-        """Remove all functions from this instance (does not touch the global registry)."""
+        """Remove all functions from this instance (does not touch the pending buffer)."""
         self._registry.clear()
         self._stream_registry.clear()
 

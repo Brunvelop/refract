@@ -11,9 +11,8 @@ from unittest.mock import patch, Mock
 
 from refract.registry import (
     _generate_function_info, register_function,
-    get_all_schemas, get_all_functions, get_function_by_name, function_count,
-    clear_registry, get_stream_func,
-    RegistryError, _has_register_decorator, _stream_registry,
+    _clear_pending,
+    RegistryError, _has_register_decorator,
     Refract, _pending_registrations, _pending_stream_funcs,
 )
 from pydantic import BaseModel
@@ -164,7 +163,8 @@ class TestRegisterFunctionDecorator:
             """Basic test function."""
             return GenericOutput(result=x * 2, success=True)
 
-        func_info = get_function_by_name("test_basic_func")
+        app = Refract("test")
+        func_info = app.get_function_by_name("test_basic_func")
         assert func_info is not None
 
         assert func_info.name == "test_basic_func"
@@ -183,7 +183,8 @@ class TestRegisterFunctionDecorator:
             """GET-only function."""
             return GenericOutput(result=f"GET: {x}", success=True)
 
-        func_info = get_function_by_name("get_only_func")
+        app = Refract("test")
+        func_info = app.get_function_by_name("get_only_func")
         assert func_info is not None
         assert func_info.http_methods == ["GET"]
 
@@ -211,57 +212,6 @@ class TestRegisterFunctionDecorator:
                 return GenericOutput(result=y, success=True)
 
 
-class TestRegistryPublicAPI:
-    """Tests for public registry API functions."""
-
-    def test_get_all_schemas(self, populated_registry):
-        """Test schemas retrieval."""
-        schemas = get_all_schemas()
-
-        assert len(schemas) > 0
-        schema = next((s for s in schemas if s.name == "test_add"), None)
-        assert schema is not None
-        assert isinstance(schema, FunctionSchema)
-
-        params = schema.parameters
-        assert len(params) == 2
-
-        x_param = params[0]
-        assert x_param.name == "x"
-        assert x_param.type_str == "int"
-        assert x_param.required is True
-        assert x_param.description == "First number"
-
-        y_param = params[1]
-        assert y_param.name == "y"
-        assert y_param.type_str == "int"
-        assert y_param.required is False
-        assert y_param.default == 1
-        assert y_param.description == "Second number"
-
-    def test_clear_registry(self, populated_registry):
-        """Test registry clearing."""
-        assert function_count() > 0
-
-        clear_registry()
-
-        assert function_count() == 0
-
-    def test_get_function_by_name(self, populated_registry):
-        """Test retrieving function by name."""
-        func_info = get_function_by_name("test_add")
-        assert func_info is not None
-        assert func_info.name == "test_add"
-
-        assert get_function_by_name("nonexistent") is None
-
-    def test_get_all_functions(self, populated_registry):
-        """Test retrieving all functions."""
-        functions = get_all_functions()
-        assert len(functions) > 0
-        assert any(f.name == "test_add" for f in functions)
-
-
 class TestRegistryIntegration:
     """Integration tests for registry functionality."""
 
@@ -277,13 +227,14 @@ class TestRegistryIntegration:
             """
             return GenericOutput(result=" ".join([name] * count), success=True)
 
-        func_info = get_function_by_name("integration_test_func")
+        app = Refract("test")
+        func_info = app.get_function_by_name("integration_test_func")
         assert func_info is not None
 
         result = func_info.func("test", 3)
         assert result.result == "test test test"
 
-        schemas = get_all_schemas()
+        schemas = app.get_all_schemas()
         schema = next((s for s in schemas if s.name == "integration_test_func"), None)
         assert schema is not None
         params = schema.parameters
@@ -301,7 +252,8 @@ class TestRegistryIntegration:
 
     def test_registry_access_nonexistent_function(self):
         """Test that searching for non-existent function returns None."""
-        result = get_function_by_name("does_not_exist")
+        app = Refract("test")
+        result = app.get_function_by_name("does_not_exist")
         assert result is None
 
 
@@ -422,11 +374,12 @@ class TestRegisterStreamingFunction:
             """A streaming function."""
             return GenericOutput(result=message, success=True)
 
-        func_info = get_function_by_name("streaming_func")
+        app = Refract("test")
+        func_info = app.get_function_by_name("streaming_func")
         assert func_info is not None
         assert func_info.streaming is True
 
-        retrieved = get_stream_func("streaming_func")
+        retrieved = app.get_stream_func("streaming_func")
         assert retrieved is mock_stream
 
     def test_register_non_streaming_default(self):
@@ -436,11 +389,12 @@ class TestRegisterStreamingFunction:
             """A normal function."""
             return GenericOutput(result=x, success=True)
 
-        func_info = get_function_by_name("normal_func")
+        app = Refract("test")
+        func_info = app.get_function_by_name("normal_func")
         assert func_info is not None
         assert func_info.streaming is False
 
-        assert get_stream_func("normal_func") is None
+        assert app.get_stream_func("normal_func") is None
 
     def test_register_streaming_without_stream_func_raises(self):
         """streaming=True without stream_func raises RegistryError."""
@@ -450,8 +404,8 @@ class TestRegisterStreamingFunction:
                 """Bad streaming function."""
                 return GenericOutput(result=message, success=True)
 
-    def test_clear_registry_clears_stream_registry(self):
-        """clear_registry() also clears _stream_registry."""
+    def test_clear_pending_clears_stream_funcs(self):
+        """_clear_pending() also clears _pending_stream_funcs."""
         async def mock_stream(**kwargs):
             yield "chunk"
 
@@ -460,14 +414,13 @@ class TestRegisterStreamingFunction:
             """A streaming function."""
             return GenericOutput(result=message, success=True)
 
-        assert get_stream_func("stream_func_clear_test") is mock_stream
-        assert len(_stream_registry) > 0
+        assert len(_pending_stream_funcs) > 0
+        assert len(_pending_registrations) > 0
 
-        clear_registry()
+        _clear_pending()
 
-        assert function_count() == 0
-        assert len(_stream_registry) == 0
-        assert get_stream_func("stream_func_clear_test") is None
+        assert len(_pending_registrations) == 0
+        assert len(_pending_stream_funcs) == 0
 
 
 class TestBaseModelSupport:
@@ -488,7 +441,8 @@ class TestBaseModelSupport:
             """
             return SearchResponse(users=["ana"], total=1)
 
-        func_info = get_function_by_name("search_users")
+        app = Refract("test")
+        func_info = app.get_function_by_name("search_users")
         assert func_info is not None
         assert func_info.name == "search_users"
         assert func_info.return_type is SearchResponse
@@ -504,7 +458,8 @@ class TestBaseModelSupport:
             """Legacy function using GenericOutput."""
             return GenericOutput(result=x, success=True)
 
-        func_info = get_function_by_name("legacy_func")
+        app = Refract("test")
+        func_info = app.get_function_by_name("legacy_func")
         assert func_info is not None
         assert func_info.return_type is GenericOutput
 
@@ -555,7 +510,8 @@ class TestBaseModelSupport:
             """Typed function."""
             return TypedResponse(value=x, label="ok")
 
-        func_info = get_function_by_name("typed_func")
+        app = Refract("test")
+        func_info = app.get_function_by_name("typed_func")
         assert func_info is not None
         assert func_info.return_type is TypedResponse
         assert issubclass(func_info.return_type, BaseModel)
@@ -579,12 +535,10 @@ class TestRefractClass:
         assert "0" in repr(app)
 
     def test_refract_collects_pending_registrations(self):
-        """_pending_registrations are drained into the Refract instance on _discover."""
+        """Refract() auto-drains _pending_registrations on instantiation."""
         def my_func(x: int) -> GenericOutput:
             """My function."""
             return GenericOutput(result=x)
-
-        from refract.registry import _pending_registrations as pending
 
         info = FunctionInfo(
             name="refract_test_func",
@@ -593,15 +547,14 @@ class TestRefractClass:
             params=[],
             return_type=GenericOutput,
         )
-        pending.append(info)
+        _pending_registrations.append(info)
 
-        app = Refract("collector")
-        # Manually drain (simulate _discover calling the drain step)
-        app._registry.extend(_pending_registrations)
-        _pending_registrations.clear()
+        app = Refract("collector")  # auto-drains on __init__
 
         assert app.function_count() == 1
         assert app.get_function_by_name("refract_test_func") is not None
+        # Pending buffer is now empty
+        assert len(_pending_registrations) == 0
 
     def test_refract_instance_isolation(self):
         """Two Refract instances do not share state."""
@@ -623,29 +576,16 @@ class TestRefractClass:
         assert app2.get_function_by_name("func_a") is None
 
     def test_refract_clear(self):
-        """Refract.clear() empties the instance registry without touching the global registry."""
-        from refract.registry import _registry as global_reg
+        """Refract.clear() empties the instance registry."""
+        app = Refract("clearable")
 
-        # Add a function directly to global registry (not via decorator to avoid naming issues)
-        def global_fn(x: int) -> GenericOutput:
-            """Global fn."""
+        def fn(x: int) -> GenericOutput:
+            """Fn."""
             return GenericOutput(result=x)
 
-        global_info = FunctionInfo(
-            name="global_fn_for_clear_test",
-            func=global_fn,
-            description="Global fn.",
-            params=[],
-            return_type=GenericOutput,
-        )
-        global_reg.append(global_info)
-        global_count_before = function_count()
-
-        # Populate a Refract instance independently
-        app = Refract("clearable")
         instance_info = FunctionInfo(
             name="instance_func",
-            func=global_fn,
+            func=fn,
             description="Instance function.",
             params=[],
             return_type=GenericOutput,
@@ -655,10 +595,7 @@ class TestRefractClass:
 
         app.clear()
 
-        # Instance is empty
         assert app.function_count() == 0
-        # Global registry is unchanged
-        assert function_count() == global_count_before
 
     def test_refract_get_stream_func(self):
         """Refract.get_stream_func returns streaming callables stored during discover."""
@@ -711,26 +648,6 @@ class TestRefractClass:
         assert len(api_funcs) == 1 and api_funcs[0].name == "fn_api_only"
         assert len(mcp_funcs) == 1 and mcp_funcs[0].name == "fn_mcp_only"
 
-    def test_refract_global_registry_unaffected_after_discover(self):
-        """After Refract._discover(), global _registry still has its own functions."""
-        # Register a function via the normal decorator — goes to global + pending
-        @register_function()
-        def global_check_func(x: int) -> GenericOutput:
-            """Global check function."""
-            return GenericOutput(result=x)
-
-        global_count = function_count()
-        assert global_count > 0
-
-        # Drain pending buffer into a Refract instance
-        app = Refract("checker")
-        app._registry.extend(_pending_registrations)
-        _pending_registrations.clear()
-
-        # Global registry should still contain global_check_func
-        assert get_function_by_name("global_check_func") is not None
-        assert function_count() == global_count
-
     def test_refract_discover_strict_mode_raises_on_bad_package(self):
         """_discover raises RegistryError when a package cannot be imported."""
         app = Refract("strict-test")
@@ -738,8 +655,8 @@ class TestRefractClass:
         with pytest.raises(RegistryError, match="Failed to import package"):
             app._discover(["nonexistent.package.that.does.not.exist"], strict=False)
 
-    def test_refract_clear_registry_also_clears_pending_buffer(self):
-        """clear_registry() (global) also clears _pending_registrations buffer."""
+    def test_refract_clear_pending_clears_buffer(self):
+        """_clear_pending() clears _pending_registrations and _pending_stream_funcs."""
         @register_function()
         def pending_test_func(x: int) -> GenericOutput:
             """Pending test function."""
@@ -747,10 +664,22 @@ class TestRefractClass:
 
         assert len(_pending_registrations) > 0
 
-        clear_registry()
+        _clear_pending()
 
         assert len(_pending_registrations) == 0
         assert len(_pending_stream_funcs) == 0
+
+    def test_refract_auto_drains_decorator_registrations(self):
+        """@register_function() + Refract() without discover works end-to-end."""
+        @register_function()
+        def auto_drain_func(x: int) -> GenericOutput:
+            """Auto drain function."""
+            return GenericOutput(result=x)
+
+        app = Refract("auto")  # drains pending automatically
+
+        assert app.function_count() == 1
+        assert app.get_function_by_name("auto_drain_func") is not None
 
     def test_refract_get_all_schemas(self):
         """get_all_schemas returns serializable FunctionSchema objects."""
@@ -772,3 +701,16 @@ class TestRefractClass:
         assert isinstance(schemas[0], FunctionSchema)
         assert schemas[0].name == "schema_fn"
         assert schemas[0].response_schema is not None
+
+    def test_two_refract_instances_dont_share_pending(self):
+        """Each Refract() call drains the buffer; a second Refract() gets an empty slate."""
+        @register_function()
+        def shared_func(x: int) -> GenericOutput:
+            """Shared func."""
+            return GenericOutput(result=x)
+
+        app1 = Refract("first")   # drains shared_func
+        app2 = Refract("second")  # pending is now empty
+
+        assert app1.function_count() == 1
+        assert app2.function_count() == 0
