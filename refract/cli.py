@@ -20,7 +20,7 @@ import click
 import uvicorn
 from typing import Dict, Any, Callable, Optional
 
-from refract.logging import configure_cli_logging
+from refract.log_config import configure_cli_logging
 
 
 # ============================================================================
