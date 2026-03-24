@@ -334,19 +334,19 @@ def _format_response(result: Any) -> Dict[str, Any]:
 
     - ``BaseModel`` → ``.model_dump()``
     - ``dict`` → returned as-is
-    - anything else → wrapped in ``GenericOutput(success=False, ...)`` with a warning
+    - anything else → raises ``TypeError`` (caught by ``_execute_function`` → HTTP 400)
 
     Args:
         result: The value returned by the registered function.
 
     Returns:
         A JSON-serialisable dict.
+
+    Raises:
+        TypeError: If the function returns a type other than ``BaseModel`` or ``dict``.
     """
     if isinstance(result, BaseModel):
         return result.model_dump()
     if isinstance(result, dict):
         return result
-    logger.warning(
-        f"Function returned non-BaseModel type: {type(result).__name__}. Converting to string."
-    )
-    return {"result": str(result), "error": f"unexpected return type: {type(result).__name__}"}
+    raise TypeError(f"Function must return BaseModel or dict, got {type(result).__name__}")
