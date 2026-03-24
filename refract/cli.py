@@ -95,36 +95,27 @@ def create_cli(registry: Registry) -> click.Group:
     @cli_group.command("serve-api")
     @click.option("--host", default="127.0.0.1", help="Host to bind to")
     @click.option("--port", default=8000, type=int, help="Port to bind to")
-    @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
-    def serve_api_cmd(host: str, port: int, reload: bool):
+    def serve_api_cmd(host: str, port: int):
         """Start the API server (REST endpoints only)."""
         click.echo(f"Starting {registry.name} API server on {host}:{port}")
-        if reload:
-            click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
         api_app = create_api_app(registry)
         uvicorn.run(api_app, host=host, port=port)
 
     @cli_group.command("serve-mcp")
     @click.option("--host", default="127.0.0.1", help="Host to bind to")
     @click.option("--port", default=8001, type=int, help="Port to bind to")
-    @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
-    def serve_mcp_cmd(host: str, port: int, reload: bool):
+    def serve_mcp_cmd(host: str, port: int):
         """Start MCP-only server (no REST API endpoints)."""
         click.echo(f"Starting {registry.name} MCP-only server on {host}:{port}")
-        if reload:
-            click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
         mcp_only_app = create_mcp_only_app(registry)
         uvicorn.run(mcp_only_app, host=host, port=port)
 
     @cli_group.command("serve")
     @click.option("--host", default="0.0.0.0", help="Host to bind to")
     @click.option("--port", default=8000, type=int, help="Port to bind to")
-    @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
-    def serve_cmd(host: str, port: int, reload: bool):
+    def serve_cmd(host: str, port: int):
         """Start the unified server with both API and MCP (recommended)."""
         click.echo(f"Starting {registry.name} unified server (API + MCP) on {host}:{port}")
-        if reload:
-            click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
         unified_app = create_mcp_app(registry)
         uvicorn.run(unified_app, host=host, port=port)
 

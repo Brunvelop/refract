@@ -134,6 +134,21 @@ my-project --verbose serve   # Enable DEBUG logging
 
 > **No boilerplate.** The `discover=` list tells Refract which packages to scan for `@register_function` decorators. Everything else is automatic.
 
+> **Advanced uvicorn options** — The built-in `serve` commands are convenience wrappers that support `--host` and `--port`. Features like auto-reload, multiple workers, or custom log levels require uvicorn to be invoked with a **string import path**, which is incompatible with dynamically created app instances. Use uvicorn directly for those cases:
+>
+> ```bash
+> # Auto-reload in development
+> uvicorn my_project.app:app.run_cli --reload
+>
+> # Multiple workers for production
+> uvicorn my_project.app:app.run_cli --workers 4 --host 0.0.0.0 --port 8000
+>
+> # Custom log level
+> uvicorn my_project.app:app.run_cli --log-level warning
+> ```
+>
+> See the [uvicorn docs](https://www.uvicorn.org/settings/) for the full list of available options.
+
 ### Level 2 — Custom CLI commands
 
 Same file, add `@app.command()`:
