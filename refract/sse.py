@@ -17,6 +17,8 @@ Usage::
     handler = _create_stream_handler(my_stream_func, DynamicModel)
 """
 
+__all__ = ["format_sse"]
+
 from fastapi.responses import StreamingResponse
 
 

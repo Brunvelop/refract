@@ -27,6 +27,8 @@ Example::
     from refract import Refract
     app = Refract("my-project", discover=["my_project.core"])
 """
+__all__ = ["Registry", "register_function", "RegistryError"]
+
 from typing import Any, Callable, get_origin, get_args, Union, Literal
 import ast
 import importlib

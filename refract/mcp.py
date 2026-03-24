@@ -16,6 +16,8 @@ Usage::
     mcp_app = app.mcp()       # FastAPI app with full API + MCP support
     mcp_only = app.mcp_only() # FastAPI app with MCP endpoints only
 """
+__all__ = ["create_mcp_app", "create_mcp_only_app"]
+
 import logging
 from fastapi import FastAPI
 from fastapi_mcp import FastApiMCP

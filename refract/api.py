@@ -1,4 +1,7 @@
 """FastAPI server with dynamic endpoints generated from a Refract registry."""
+
+__all__ = ["create_api_app", "create_router", "create_handler"]
+
 import logging
 import os
 from typing import Any, Callable, Dict, Type

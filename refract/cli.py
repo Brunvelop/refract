@@ -16,6 +16,8 @@ Usage::
     # [project.scripts]
     # my-project = "my_project.app:app.run_cli"
 """
+__all__ = ["create_cli"]
+
 import json
 import click
 import uvicorn
