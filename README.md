@@ -391,7 +391,7 @@ refract/
 │   ├── cli.py            # Click group factory
 │   ├── mcp.py            # FastAPI + MCP factory
 │   ├── sse.py            # format_sse(), _create_stream_handler()
-│   ├── logging.py        # configure_cli_logging(), configure_api_logging()
+│   ├── log_config.py     # configure_cli_logging(), configure_api_logging()
 │   └── web/
 │       ├── client.js     # RefractClient — Layer 1 (vanilla JS)
 │       ├── controller.js # AutoFunctionController — Layer 2 (Lit)
