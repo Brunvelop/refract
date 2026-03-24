@@ -34,6 +34,7 @@ import importlib.util
 import inspect
 import logging
 import pkgutil
+import threading
 from docstring_parser import parse
 
 from pydantic import BaseModel
@@ -48,6 +49,24 @@ logger = logging.getLogger(__name__)
 # --- PRIVATE STATE ---
 
 # Buffer for pending registrations (used by Registry._drain_pending())
+#
+# This module uses a Celery-style "pending buffer" pattern to decouple the
+# decoration time (when @register_function fires during module import) from the
+# consumption time (when a Registry instance is instantiated and calls
+# _drain_pending()).
+#
+# The flow is:
+#   1. User decorates a function with @register_function().
+#   2. The decorator appends a FunctionInfo to _pending_registrations.
+#   3. At some later point, Registry.__init__ calls _drain_pending(), which
+#      moves everything from the buffer into the instance's own registry and
+#      clears the buffer.
+#
+# Because module imports can happen from multiple threads (e.g. concurrent
+# test runners, eager import in threaded apps), all reads and writes to
+# _pending_registrations and _pending_stream_funcs must be protected by
+# _pending_lock to prevent data races.
+_pending_lock = threading.Lock()
 _pending_registrations: list[FunctionInfo] = []
 _pending_stream_funcs: dict[str, Callable] = {}
 
@@ -84,15 +103,16 @@ def register_function(
             info = _generate_function_info(func, http_methods, interfaces)
             info.streaming = streaming
 
-            # Check for duplicates against pending buffer only
-            if any(f.name == info.name for f in _pending_registrations):
-                raise RegistryError(f"Function '{info.name}' is already registered")
+            with _pending_lock:
+                # Check for duplicates against pending buffer only
+                if any(f.name == info.name for f in _pending_registrations):
+                    raise RegistryError(f"Function '{info.name}' is already registered")
 
-            _pending_registrations.append(info)
+                _pending_registrations.append(info)
 
-            # Store stream_func in pending buffer
-            if stream_func is not None:
-                _pending_stream_funcs[info.name] = stream_func
+                # Store stream_func in pending buffer
+                if stream_func is not None:
+                    _pending_stream_funcs[info.name] = stream_func
 
             logger.debug(f"Registered '{info.name}' with methods {info.http_methods}, streaming={streaming}")
         except Exception as e:
@@ -103,8 +123,9 @@ def register_function(
 
 def _clear_pending() -> None:
     """Clear pending buffers. Used for testing."""
-    _pending_registrations.clear()
-    _pending_stream_funcs.clear()
+    with _pending_lock:
+        _pending_registrations.clear()
+        _pending_stream_funcs.clear()
 
 
 # --- PRIVATE IMPLEMENTATION ---
@@ -267,10 +288,11 @@ class Registry:
 
     def _drain_pending(self) -> None:
         """Drain the global pending buffer into this instance's registry."""
-        self._registry.extend(_pending_registrations)
-        self._stream_registry.update(_pending_stream_funcs)
-        _pending_registrations.clear()
-        _pending_stream_funcs.clear()
+        with _pending_lock:
+            self._registry.extend(_pending_registrations)
+            self._stream_registry.update(_pending_stream_funcs)
+            _pending_registrations.clear()
+            _pending_stream_funcs.clear()
 
     def _discover(self, packages: list[str], strict: bool = False) -> None:
         """Import modules in *packages* and collect pending registrations.

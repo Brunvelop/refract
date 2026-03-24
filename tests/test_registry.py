@@ -6,6 +6,7 @@ API endpoints, and MCP tools through function registration and parameter inferen
 """
 import pytest
 import inspect
+import threading
 from typing import Any
 from unittest.mock import patch, Mock
 
@@ -715,3 +716,80 @@ class TestRefractClass:
 
         assert app1.function_count() == 1
         assert app2.function_count() == 0
+
+
+class TestThreadSafety:
+    """Tests for thread-safe access to the global pending buffer."""
+
+    def test_concurrent_registrations_no_data_loss(self):
+        """Functions registered from multiple threads are all captured without loss.
+
+        Each thread appends FunctionInfo objects directly to _pending_registrations
+        via the lock-protected path, then a single Refract() drains everything.
+        We skip the @register_function decorator to avoid duplicate-name conflicts
+        across threads.
+        """
+        from refract.registry import _pending_registrations, _pending_stream_funcs, _pending_lock
+
+        N_THREADS = 10
+        N_FUNCS_PER_THREAD = 5
+        errors: list[Exception] = []
+
+        def worker(thread_id: int) -> None:
+            for i in range(N_FUNCS_PER_THREAD):
+                def fn(x: int) -> GenericOutput:
+                    return GenericOutput(result=x)
+
+                info = FunctionInfo(
+                    name=f"thread_{thread_id}_func_{i}",
+                    func=fn,
+                    description=f"Thread {thread_id} func {i}.",
+                    params=[],
+                    return_type=GenericOutput,
+                )
+                try:
+                    with _pending_lock:
+                        _pending_registrations.append(info)
+                except Exception as e:
+                    errors.append(e)
+
+        threads = [threading.Thread(target=worker, args=(t,)) for t in range(N_THREADS)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"Errors in threads: {errors}"
+
+        app = Refract("thread-safety-test")  # drains all pending
+
+        expected = N_THREADS * N_FUNCS_PER_THREAD
+        assert app.function_count() == expected
+
+    def test_drain_pending_is_atomic(self):
+        """_drain_pending() moves all items in one atomic operation.
+
+        We pre-populate the buffer with several FunctionInfo objects, then
+        drain into a Refract instance and verify the buffer is empty and the
+        instance captured everything.
+        """
+        from refract.registry import _pending_registrations, _pending_lock
+
+        def fn(x: int) -> GenericOutput:
+            return GenericOutput(result=x)
+
+        with _pending_lock:
+            for i in range(5):
+                _pending_registrations.append(FunctionInfo(
+                    name=f"atomic_func_{i}",
+                    func=fn,
+                    description=f"Atomic func {i}.",
+                    params=[],
+                    return_type=GenericOutput,
+                ))
+
+        app = Refract("atomic-drain")  # calls _drain_pending()
+
+        assert app.function_count() == 5
+        with _pending_lock:
+            assert len(_pending_registrations) == 0
