@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, create_model
 
-from refract.models import FunctionInfo, GenericOutput, FunctionSchema
+from refract.models import FunctionInfo, FunctionSchema
 from refract.sse import _create_stream_handler
 
 logger = logging.getLogger(__name__)
@@ -180,7 +180,7 @@ def _add_function_endpoints(
         else:
             for method in func_info.http_methods:
                 handler, _ = create_handler(func_info, method)
-                response_model = func_info.return_type or GenericOutput
+                response_model = func_info.return_type
                 app_or_router.add_api_route(
                     f"/{func_info.name}",
                     handler,
@@ -344,8 +344,4 @@ def _format_response(result: Any) -> Dict[str, Any]:
     logger.warning(
         f"Function returned non-BaseModel type: {type(result).__name__}. Converting to string."
     )
-    return GenericOutput(
-        success=False,
-        result=str(result),
-        message=f"Warning: Function returned non-BaseModel type ({type(result).__name__})",
-    ).model_dump()
+    return {"result": str(result), "error": f"unexpected return type: {type(result).__name__}"}

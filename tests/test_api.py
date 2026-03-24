@@ -155,7 +155,7 @@ class TestCreateResultResponseBaseModel:
         assert response["notes"] is None
 
     def test_format_response_non_basemodel_non_dict_falls_back_to_generic_output(self):
-        """Non-BaseModel, non-dict results fall back to GenericOutput with warning."""
+        """Non-BaseModel, non-dict results return a plain dict with result and error keys."""
         class CustomObject:
             def __init__(self, val):
                 self.val = val
@@ -164,9 +164,9 @@ class TestCreateResultResponseBaseModel:
         response = create_result_response(obj)
 
         assert isinstance(response, dict)
-        assert response["success"] is False
-        assert "non-BaseModel type" in response["message"]
-        assert "CustomObject" in response["message"]
+        assert "result" in response
+        assert "error" in response
+        assert "CustomObject" in response["error"]
 
     def test_format_response_generic_output_still_works_via_basemodel_path(self):
         """GenericOutput is handled correctly (via BaseModel isinstance check)."""

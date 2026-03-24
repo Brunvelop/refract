@@ -20,7 +20,6 @@ from fastapi import FastAPI
 from fastapi_mcp import FastApiMCP
 
 from refract.api import create_handler
-from refract.models import GenericOutput
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ def _register_mcp_endpoints_for_refract(app: FastAPI, refract) -> None:
     for func_info in mcp_functions:
         for method in func_info.http_methods:
             handler, input_model = create_handler(func_info, method)
-            response_model = func_info.return_type or GenericOutput
+            response_model = func_info.return_type
 
             app.add_api_route(
                 f"/{func_info.name}",
