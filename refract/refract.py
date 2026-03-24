@@ -17,7 +17,7 @@ graph acyclic:
 from refract.registry import Registry
 from refract.api import create_api_app, create_router
 from refract.cli import create_cli
-from refract.mcp import create_mcp_app
+from refract.mcp import create_mcp_app, create_mcp_only_app
 
 
 class Refract(Registry):
@@ -30,9 +30,10 @@ class Refract(Registry):
     Usage::
 
         app = Refract("my-project", discover=["my_project.core"])
-        fastapi_app = app.api()   # REST API
-        cli = app.cli()            # Click CLI
-        mcp_app = app.mcp()        # MCP tools
+        fastapi_app = app.api()       # REST API
+        cli = app.cli()               # Click CLI
+        mcp_app = app.mcp()           # Full API + MCP tools
+        mcp_only_app = app.mcp_only() # MCP endpoints only
     """
 
     def __init__(self, name: str, discover: list[str] | None = None) -> None:
@@ -74,6 +75,18 @@ class Refract(Registry):
             A configured ``FastAPI`` application with MCP support.
         """
         return create_mcp_app(self)
+
+    def mcp_only(self):
+        """Create and return a minimal FastAPI application with MCP endpoints only.
+
+        Unlike :meth:`mcp`, this does not include REST API endpoints, HTML
+        pages, or static files — only the MCP tool endpoints and a ``/health``
+        check.  Suitable for a dedicated MCP sidecar deployment.
+
+        Returns:
+            A configured ``FastAPI`` application with MCP-only support.
+        """
+        return create_mcp_only_app(self)
 
     @property
     def run_cli(self):

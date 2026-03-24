@@ -13,7 +13,8 @@ Usage::
     from refract import Refract
 
     app = Refract("my-project", discover=["my_project.core"])
-    mcp_app = app.mcp()   # FastAPI app with API + MCP support
+    mcp_app = app.mcp()       # FastAPI app with full API + MCP support
+    mcp_only = app.mcp_only() # FastAPI app with MCP endpoints only
 """
 import logging
 from fastapi import FastAPI
@@ -58,6 +59,67 @@ def _register_mcp_endpoints(app: FastAPI, registry: Registry) -> None:
             )
 
     logger.info(f"[Refract:{registry.name}] Registered {len(mcp_functions)} MCP endpoints")
+
+
+def create_mcp_only_app(registry: Registry) -> FastAPI:
+    """Create a minimal FastAPI application exposing only MCP endpoints.
+
+    Unlike ``create_mcp_app``, this function does **not** build on top of the
+    full REST API application.  It creates a bare ``FastAPI`` instance and
+    registers only the functions whose ``interfaces`` list includes ``"mcp"``.
+
+    Steps:
+        1. Create a fresh ``FastAPI`` app (no ``create_api_app``).
+        2. Register a minimal ``/health`` endpoint.
+        3. Register only the MCP-interface endpoints (tagged ``"mcp-tools"``).
+        4. Initialise and mount the ``FastApiMCP`` server.
+
+    No HTML pages, static files, or general REST endpoints are included.
+    Suitable for deployments where the MCP surface should be isolated from
+    the REST API (e.g. a dedicated MCP sidecar).
+
+    Args:
+        registry: A ``Registry`` instance whose ``"mcp"``-interface functions
+            are exposed as MCP tool endpoints.
+
+    Returns:
+        A configured ``FastAPI`` application with MCP-only support.
+
+    Raises:
+        RuntimeError: If MCP server initialisation fails.
+    """
+    try:
+        # Step 1: Create a bare FastAPI app (no full API layer)
+        app = FastAPI(
+            title=f"{registry.name} MCP Server",
+            description=f"MCP-only server for {registry.name}",
+        )
+
+        # Step 2: Minimal /health endpoint (useful for container health checks)
+        @app.get("/health", tags=["health"])
+        async def health_check() -> dict:
+            return {"status": "healthy", "server": registry.name, "mode": "mcp-only"}
+
+        # Step 3: Register only MCP-interface endpoints
+        _register_mcp_endpoints(app, registry)
+
+        # Step 4: Initialise MCP server — include only mcp-tools tagged endpoints
+        mcp = FastApiMCP(
+            app,
+            name=f"{registry.name} MCP Server",
+            description=f"MCP server for {registry.name}",
+            include_tags=["mcp-tools"],
+        )
+
+        # Step 5: Mount MCP server with Streamable HTTP transport
+        mcp.mount_http()
+
+        logger.info(f"[Refract:{registry.name}] Successfully created MCP-only app")
+        return app
+
+    except Exception as e:
+        logger.error(f"[Refract:{registry.name}] Failed to create MCP-only app: {str(e)}")
+        raise RuntimeError(f"MCP server initialization failed: {str(e)}") from e
 
 
 def create_mcp_app(registry: Registry) -> FastAPI:

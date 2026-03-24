@@ -22,7 +22,7 @@ from typing import Dict, Any, Callable, Optional
 
 from refract.api import create_api_app
 from refract.log_config import configure_cli_logging
-from refract.mcp import create_mcp_app
+from refract.mcp import create_mcp_app, create_mcp_only_app
 from refract.registry import Registry
 
 
@@ -109,12 +109,12 @@ def create_cli(registry: Registry) -> click.Group:
     @click.option("--port", default=8001, type=int, help="Port to bind to")
     @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
     def serve_mcp_cmd(host: str, port: int, reload: bool):
-        """Start server with API endpoints and MCP integration."""
-        click.echo(f"Starting {registry.name} server (API + MCP) on {host}:{port}")
+        """Start MCP-only server (no REST API endpoints)."""
+        click.echo(f"Starting {registry.name} MCP-only server on {host}:{port}")
         if reload:
             click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
-        mcp_app = create_mcp_app(registry)
-        uvicorn.run(mcp_app, host=host, port=port)
+        mcp_only_app = create_mcp_only_app(registry)
+        uvicorn.run(mcp_only_app, host=host, port=port)
 
     @cli_group.command("serve")
     @click.option("--host", default="0.0.0.0", help="Host to bind to")

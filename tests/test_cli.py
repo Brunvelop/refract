@@ -527,6 +527,128 @@ class TestRefractCli:
         assert call_kwargs["port"] == 8000
 
     # ------------------------------------------------------------------
+    # serve-mcp command
+    # ------------------------------------------------------------------
+
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_only_app")
+    def test_serve_mcp_calls_create_mcp_only_app(self, mock_create_mcp_only, mock_uvicorn):
+        """serve-mcp uses create_mcp_only_app (not create_mcp_app)."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_mcp_only_app = MagicMock()
+        mock_create_mcp_only.return_value = mock_mcp_only_app
+
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["serve-mcp"])
+
+        assert result.exit_code == 0
+        mock_create_mcp_only.assert_called_once_with(r)
+        mock_uvicorn.assert_called_once_with(mock_mcp_only_app, host="127.0.0.1", port=8001)
+
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_only_app")
+    def test_serve_mcp_does_not_call_create_mcp_app(self, mock_create_mcp_only, mock_uvicorn):
+        """serve-mcp must NOT call create_mcp_app (full API+MCP)."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_create_mcp_only.return_value = MagicMock()
+
+        group = r.cli()
+        runner = CliRunner()
+
+        with patch("refract.cli.create_mcp_app") as mock_create_mcp:
+            runner.invoke(group, ["serve-mcp"])
+            mock_create_mcp.assert_not_called()
+
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_only_app")
+    def test_serve_mcp_custom_host_port(self, mock_create_mcp_only, mock_uvicorn):
+        """serve-mcp accepts custom --host and --port."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_create_mcp_only.return_value = MagicMock()
+
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["serve-mcp", "--host", "0.0.0.0", "--port", "9001"])
+
+        assert result.exit_code == 0
+        call_kwargs = mock_uvicorn.call_args[1]
+        assert call_kwargs["host"] == "0.0.0.0"
+        assert call_kwargs["port"] == 9001
+
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_only_app")
+    def test_serve_mcp_default_host_port(self, mock_create_mcp_only, mock_uvicorn):
+        """serve-mcp defaults to host 127.0.0.1 and port 8001."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_create_mcp_only.return_value = MagicMock()
+
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["serve-mcp"])
+
+        assert result.exit_code == 0
+        call_kwargs = mock_uvicorn.call_args[1]
+        assert call_kwargs["host"] == "127.0.0.1"
+        assert call_kwargs["port"] == 8001
+
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_only_app")
+    def test_serve_mcp_echo_mentions_mcp_only(self, mock_create_mcp_only, mock_uvicorn):
+        """serve-mcp output mentions 'MCP' (not 'API + MCP')."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_create_mcp_only.return_value = MagicMock()
+
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["serve-mcp"])
+
+        assert "MCP" in result.output
+
+    # ------------------------------------------------------------------
+    # serve command
+    # ------------------------------------------------------------------
+
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_app")
+    def test_serve_calls_create_mcp_app(self, mock_create_mcp, mock_uvicorn):
+        """serve command uses create_mcp_app (full API + MCP)."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_unified_app = MagicMock()
+        mock_create_mcp.return_value = mock_unified_app
+
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["serve"])
+
+        assert result.exit_code == 0
+        mock_create_mcp.assert_called_once_with(r)
+        mock_uvicorn.assert_called_once_with(mock_unified_app, host="0.0.0.0", port=8000)
+
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_app")
+    def test_serve_default_host_port(self, mock_create_mcp, mock_uvicorn):
+        """serve defaults to host 0.0.0.0 and port 8000."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_create_mcp.return_value = MagicMock()
+
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["serve"])
+
+        assert result.exit_code == 0
+        call_kwargs = mock_uvicorn.call_args[1]
+        assert call_kwargs["host"] == "0.0.0.0"
+        assert call_kwargs["port"] == 8000
+
+    # ------------------------------------------------------------------
     # Isolation: multiple Refract instances
     # ------------------------------------------------------------------
 
