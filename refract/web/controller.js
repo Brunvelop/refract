@@ -55,7 +55,7 @@ export class AutoFunctionController extends LitElement {
         this.errors = {};
 
         this._status = 'default';
-        this._statusMessage = 'Listo';
+        this._statusMessage = 'Ready';
         this._errorMessage = '';
         this._isExecuting = false;
 
@@ -72,7 +72,7 @@ export class AutoFunctionController extends LitElement {
                 await this.loadFunctionInfo();
             } catch (error) {
                 this._errorMessage = error.message;
-                this._setStatus('error', 'Error cargando función');
+                this._setStatus('error', 'Error loading function');
             }
         }
 
@@ -180,8 +180,8 @@ export class AutoFunctionController extends LitElement {
     async execute() {
         // 1. Validar estado (params vs funcInfo)
         if (!this.validate()) {
-            this._errorMessage = 'Por favor, completa todos los campos requeridos y corrige los errores.';
-            this._setStatus('error', 'Error de validación');
+            this._errorMessage = 'Please fill all required fields and fix errors.';
+            this._setStatus('error', 'Validation error');
             return;
         }
 
@@ -194,13 +194,13 @@ export class AutoFunctionController extends LitElement {
         });
 
         if (!this.dispatchEvent(preEvent)) {
-            console.log('Ejecución cancelada por before-execute handler');
+            console.log('Execution cancelled by before-execute handler');
             return;
         }
 
         // 3. Setup execution state
         this._isExecuting = true;
-        this._setStatus('loading', 'Ejecutando...');
+        this._setStatus('loading', 'Executing...');
         this._errorMessage = '';
 
         try {
@@ -225,11 +225,11 @@ export class AutoFunctionController extends LitElement {
             // Si el backend devuelve success=false, lo tratamos como ejecución fallida
             // (pero NO lanzamos excepción: queda a criterio del consumidor)
             if (this.success === false) {
-                this._errorMessage = this.message || 'Error en ejecución';
-                this._setStatus('error', 'Error en ejecución');
+                this._errorMessage = this.message || 'Execution error';
+                this._setStatus('error', 'Execution error');
             } else {
                 this._errorMessage = '';
-                this._setStatus('success', 'Ejecutado correctamente');
+                this._setStatus('success', 'Executed successfully');
             }
 
             const payload = this.result;
@@ -246,7 +246,7 @@ export class AutoFunctionController extends LitElement {
             this.envelope = this.result;
             this.success = false;
             this.message = this.result._message;
-            this._setStatus('error', 'Error en ejecución');
+            this._setStatus('error', 'Execution error');
 
             this.dispatchEvent(new CustomEvent('execute-error', {
                 detail: { funcName: this.funcName, params: this.params, error },
@@ -277,7 +277,7 @@ export class AutoFunctionController extends LitElement {
                 if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
                     // Checkbox/Boolean required usually ignored unless specified true needed
                     if (param.type !== 'bool') {
-                        error = 'Campo requerido';
+                        error = 'Required field';
                     }
                 }
             }
@@ -285,16 +285,16 @@ export class AutoFunctionController extends LitElement {
             // Type check (basic)
             if (!error && value !== undefined && value !== null && value !== '') {
                 if (param.type === 'int') {
-                    if (!Number.isInteger(Number(value))) error = 'Debe ser un número entero';
+                    if (!Number.isInteger(Number(value))) error = 'Must be an integer';
                 } else if (param.type === 'float') {
-                    if (isNaN(parseFloat(value))) error = 'Debe ser un número decimal';
+                    if (isNaN(parseFloat(value))) error = 'Must be a decimal number';
                 } else if (this._isComplexType(param.type)) {
                     // Si es string (desde textarea), intentar parsear
                     if (typeof value === 'string') {
                         try {
                             JSON.parse(value);
                         } catch (e) {
-                            error = 'JSON inválido';
+                            error = 'Invalid JSON';
                         }
                     }
                 }

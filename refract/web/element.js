@@ -86,7 +86,7 @@ export class AutoFunctionElement extends AutoFunctionController {
 
     render() {
         if (!this.funcInfo) {
-            return html`<div class="container">Cargando...</div>`;
+            return html`<div class="container">Loading...</div>`;
         }
 
         return html`
@@ -107,7 +107,7 @@ export class AutoFunctionElement extends AutoFunctionController {
                 ` : ''}
 
                 <button class="execute-btn" ?disabled=${this._isExecuting} @click=${this.execute}>
-                    ${this._isExecuting ? 'Ejecutando...' : `Ejecutar ⚡`}
+                    ${this._isExecuting ? 'Executing...' : `Execute ⚡`}
                 </button>
 
                 ${this.result !== null ? this.renderResult() : ''}
@@ -146,7 +146,7 @@ export class AutoFunctionElement extends AutoFunctionController {
                 <div class="checkbox-wrapper">
                     <input type="checkbox" name="${param.name}" ?checked=${!!currentValue}
                         @change=${e => this.setParam(param.name, e.target.checked)}>
-                    <span>Activar</span>
+                    <span>Enable</span>
                 </div>
             `;
         } else {
