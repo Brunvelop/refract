@@ -56,7 +56,7 @@ def _register_mcp_endpoints_for_refract(app: FastAPI, refract) -> None:
                 tags=["mcp-tools"],
             )
 
-    logger.info(f"[Refract:{refract._name}] Registered {len(mcp_functions)} MCP endpoints")
+    logger.info(f"[Refract:{refract.name}] Registered {len(mcp_functions)} MCP endpoints")
 
 
 def create_mcp_app_for_refract(refract) -> FastAPI:
@@ -83,8 +83,8 @@ def create_mcp_app_for_refract(refract) -> FastAPI:
         app = refract.api()
 
         # Step 2: Update app metadata to reflect MCP integration
-        app.title = f"{refract._name} API + MCP Server"
-        app.description = f"API and MCP server for {refract._name}"
+        app.title = f"{refract.name} API + MCP Server"
+        app.description = f"API and MCP server for {refract.name}"
 
         # Step 3: Register MCP-specific endpoints (only functions with "mcp" interface)
         _register_mcp_endpoints_for_refract(app, refract)
@@ -92,17 +92,17 @@ def create_mcp_app_for_refract(refract) -> FastAPI:
         # Step 4: Initialise MCP server — include only mcp-tools tagged endpoints
         mcp = FastApiMCP(
             app,
-            name=f"{refract._name} MCP Server",
-            description=f"MCP server for {refract._name} functions and API endpoints",
+            name=f"{refract.name} MCP Server",
+            description=f"MCP server for {refract.name} functions and API endpoints",
             include_tags=["mcp-tools"],
         )
 
         # Step 5: Mount MCP server with Streamable HTTP transport (modern)
         mcp.mount_http()
 
-        logger.info(f"[Refract:{refract._name}] Successfully created MCP app with API integration")
+        logger.info(f"[Refract:{refract.name}] Successfully created MCP app with API integration")
         return app
 
     except Exception as e:
-        logger.error(f"[Refract:{refract._name}] Failed to create MCP app: {str(e)}")
+        logger.error(f"[Refract:{refract.name}] Failed to create MCP app: {str(e)}")
         raise RuntimeError(f"MCP server initialization failed: {str(e)}") from e

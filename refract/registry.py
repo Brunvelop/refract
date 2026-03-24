@@ -239,7 +239,7 @@ class Refract:
                 decorators (e.g. ``["my_project.core"]``). When provided,
                 ``_discover()`` is called immediately during ``__init__``.
         """
-        self._name = name
+        self.name = name
         self._registry: list[FunctionInfo] = []
         self._stream_registry: dict[str, Callable] = {}
         self._custom_commands: list[tuple[str, Callable, dict]] = []
@@ -284,13 +284,13 @@ class Refract:
                 pkg = importlib.import_module(package_path)
             except ImportError as e:
                 raise RegistryError(
-                    f"[Refract:{self._name}] Failed to import package '{package_path}': {e}"
+                    f"[Refract:{self.name}] Failed to import package '{package_path}': {e}"
                 ) from e
 
             pkg_file = getattr(pkg, "__path__", None)
             if pkg_file is None:
                 logger.warning(
-                    f"[Refract:{self._name}] '{package_path}' has no __path__; skipping."
+                    f"[Refract:{self.name}] '{package_path}' has no __path__; skipping."
                 )
                 continue
 
@@ -299,35 +299,35 @@ class Refract:
                 key=lambda x: x[1],
             )
 
-            logger.info(f"[refract:{self._name}] Scanning {package_path}...")
+            logger.info(f"[refract:{self.name}] Scanning {package_path}...")
 
             for _, module_name, is_pkg in modules:
                 if is_pkg:
                     continue
                 module_path_str = _get_module_file_path(module_name)
                 if not _has_register_decorator(module_path_str):
-                    logger.debug(f"[refract:{self._name}]   ℹ️  {module_name} — no @register_function found")
+                    logger.debug(f"[refract:{self.name}]   ℹ️  {module_name} — no @register_function found")
                     continue
                 before = len(_pending_registrations)
                 try:
                     importlib.import_module(module_name)
                     n_funcs = len(_pending_registrations) - before
-                    logger.info(f"[refract:{self._name}]   ✅ {module_name} — {n_funcs} function{'s' if n_funcs != 1 else ''}")
+                    logger.info(f"[refract:{self.name}]   ✅ {module_name} — {n_funcs} function{'s' if n_funcs != 1 else ''}")
                 except Exception as e:
                     failed.append((module_name, str(e)))
                     logger.warning(
-                        f"[refract:{self._name}]   ⚠️  {module_name} — skipped ({type(e).__name__}: {e})"
+                        f"[refract:{self.name}]   ⚠️  {module_name} — skipped ({type(e).__name__}: {e})"
                     )
 
         total_funcs = len(self._registry) + len(_pending_registrations)
         logger.info(
-            f"[refract:{self._name}] Total: {total_funcs} function{'s' if total_funcs != 1 else ''} registered"
+            f"[refract:{self.name}] Total: {total_funcs} function{'s' if total_funcs != 1 else ''} registered"
             + (f", {len(failed)} module{'s' if len(failed) != 1 else ''} skipped" if failed else "")
         )
 
         if failed and strict:
             raise RegistryError(
-                f"[Refract:{self._name}] Failed to load modules in strict mode: "
+                f"[Refract:{self.name}] Failed to load modules in strict mode: "
                 f"{[m[0] for m in failed]}"
             )
 
@@ -450,4 +450,4 @@ class Refract:
     # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
-        return f"Refract(name={self._name!r}, functions={self.function_count()})"
+        return f"Refract(name={self.name!r}, functions={self.function_count()})"

@@ -524,7 +524,7 @@ class TestRefractClass:
         """Refract can be instantiated without discover, resulting in an empty registry."""
         app = Refract("test-project")
 
-        assert app._name == "test-project"
+        assert app.name == "test-project"
         assert app.function_count() == 0
         assert app.get_all_functions() == []
 

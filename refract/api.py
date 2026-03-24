@@ -99,8 +99,8 @@ def create_api_app_for_refract(refract) -> FastAPI:
         _version = "unknown"
 
     app = FastAPI(
-        title=f"{refract._name} API",
-        description=f"API for {refract._name}",
+        title=f"{refract.name} API",
+        description=f"API for {refract.name}",
         version=_version,
     )
 

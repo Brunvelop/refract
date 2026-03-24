@@ -61,7 +61,7 @@ def create_cli_for_refract(refract) -> click.Group:
     Returns:
         A ``click.Group`` ready to serve as a CLI entry point.
     """
-    @click.group(help=f"{refract._name} CLI")
+    @click.group(help=f"{refract.name} CLI")
     @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output (DEBUG level)')
     @click.pass_context
     def cli_group(ctx, verbose):
@@ -95,7 +95,7 @@ def create_cli_for_refract(refract) -> click.Group:
     @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
     def serve_api_cmd(host: str, port: int, reload: bool):
         """Start the API server (REST endpoints only)."""
-        click.echo(f"Starting {refract._name} API server on {host}:{port}")
+        click.echo(f"Starting {refract.name} API server on {host}:{port}")
         if reload:
             click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
         api_app = refract.api()
@@ -107,7 +107,7 @@ def create_cli_for_refract(refract) -> click.Group:
     @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
     def serve_mcp_cmd(host: str, port: int, reload: bool):
         """Start server with API endpoints and MCP integration."""
-        click.echo(f"Starting {refract._name} server (API + MCP) on {host}:{port}")
+        click.echo(f"Starting {refract.name} server (API + MCP) on {host}:{port}")
         if reload:
             click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
         mcp_app = refract.mcp()
@@ -119,7 +119,7 @@ def create_cli_for_refract(refract) -> click.Group:
     @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
     def serve_cmd(host: str, port: int, reload: bool):
         """Start the unified server with both API and MCP (recommended)."""
-        click.echo(f"Starting {refract._name} unified server (API + MCP) on {host}:{port}")
+        click.echo(f"Starting {refract.name} unified server (API + MCP) on {host}:{port}")
         if reload:
             click.echo("Warning: --reload not supported with Refract instance, starting without reload.")
         unified_app = refract.mcp()
