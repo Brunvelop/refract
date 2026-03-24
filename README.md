@@ -252,6 +252,12 @@ for await (const { event, data } of api.stream('process_text', { text: 'hello wo
 
 Three layers — use as much or as little as you need.
 
+> **Note:** The Web UI components (Layers 2 & 3) import
+> [Lit](https://lit.dev/) from `cdn.jsdelivr.net` at runtime.
+> An internet connection is required. For air-gapped environments,
+> bundle Lit locally and update the import paths in `controller.js`
+> and `element.js`.
+
 ### Layer 1: `RefractClient` (vanilla JS, no framework)
 
 Pure HTTP client. Works anywhere — Lit components, vanilla JS, tests.
