@@ -599,7 +599,7 @@ class TestExecuteFunctionWithParams:
         assert "params={'x': 5, 'y': 3}" in str(request_log)
 
     def test_execute_function_with_params_type_error(self):
-        """TypeError is caught as a 400."""
+        """TypeError is caught as a 500."""
         def type_error_func(x: int, y: str) -> str:
             return f"Result: {x + len(y)}"
 
@@ -617,7 +617,7 @@ class TestExecuteFunctionWithParams:
         with pytest.raises(HTTPException) as exc_info:
             execute_function_with_params(func_info, {"x": "not_int", "y": 123}, "POST")
 
-        assert exc_info.value.status_code == 400
+        assert exc_info.value.status_code == 500
 
     def test_execute_function_with_params_custom_exception(self):
         """Custom exceptions that aren't ValueError/TypeError become 500."""

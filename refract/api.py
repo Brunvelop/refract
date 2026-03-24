@@ -290,9 +290,12 @@ def _execute_function(
         logger.debug(f"{method} {func_info.name}: params={func_params}")
         result = func_info.func(**func_params)
         return _format_response(result)
-    except (ValueError, TypeError) as e:
+    except ValueError as e:
         logger.warning(f"{method} {func_info.name} param error: {e}")
         raise HTTPException(status_code=400, detail=f"Parameter error: {e}")
+    except TypeError as e:
+        logger.warning(f"{method} {func_info.name} type error: {e}")
+        raise HTTPException(status_code=500, detail=f"Type error: {e}")
     except Exception as e:
         logger.error(f"{method} {func_info.name} error: {e}")
         raise HTTPException(status_code=500, detail=f"Internal error: {e}")
