@@ -134,10 +134,10 @@ def create_handler(func_info: FunctionInfo, method: str):
     DynamicModel = _create_dynamic_model(func_info, for_post=is_post)
 
     if is_post:
-        async def handler(request: DynamicModel):
+        def handler(request: DynamicModel):
             return _execute_function(func_info, request.model_dump(), method)
     else:
-        async def handler(query_params: DynamicModel = Depends()):
+        def handler(query_params: DynamicModel = Depends()):
             return _execute_function(func_info, query_params.model_dump(), method)
 
     return handler, DynamicModel

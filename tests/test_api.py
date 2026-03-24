@@ -678,7 +678,7 @@ class TestCreateHandler:
         assert callable(handler)
         assert issubclass(model, BaseModel)
         assert model.__name__ == "Test_AddInput"
-        assert asyncio.iscoroutinefunction(handler)
+        assert not asyncio.iscoroutinefunction(handler)
 
     def test_create_handler_get(self, sample_function_info):
         handler, model = create_handler(sample_function_info, "GET")
@@ -686,13 +686,13 @@ class TestCreateHandler:
         assert callable(handler)
         assert issubclass(model, BaseModel)
         assert model.__name__ == "Test_AddQueryParams"
-        assert asyncio.iscoroutinefunction(handler)
+        assert not asyncio.iscoroutinefunction(handler)
 
     def test_handler_execution_post(self, sample_function_info):
         handler, model = create_handler(sample_function_info, "POST")
 
         request = model(x=5, y=3)
-        result = asyncio.run(handler(request))
+        result = handler(request)
 
         assert result == {"result": 8, "success": True, "message": None}
 
