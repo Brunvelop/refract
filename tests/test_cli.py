@@ -4,6 +4,7 @@ Tests for refract.cli module.
 All tests operate through Refract instances — there is no global ``app``
 object or auto-initialization in the refract package.
 """
+import json
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from click.testing import CliRunner
@@ -111,16 +112,17 @@ class TestCreateHandler:
         assert handler.__doc__ == sample_function_info.description
 
     def test_create_handler_execution_success(self, sample_function_info):
-        """Handler executes the underlying function and echoes the result."""
+        """Handler executes the underlying function and echoes result as JSON."""
         handler = _create_handler("test_add", sample_function_info)
 
         with patch("click.echo") as mock_echo:
             handler(x=5, y=3)
             mock_echo.assert_called_once()
             call_args = mock_echo.call_args[0][0]
-            assert isinstance(call_args, TestOutput)
-            assert call_args.result == 8
-            assert call_args.success is True
+            assert isinstance(call_args, str)
+            parsed = json.loads(call_args)
+            assert parsed["result"] == 8
+            assert parsed["success"] is True
 
     def test_create_handler_execution_with_defaults(self, sample_function_info):
         """Handler uses default parameter values when argument is None."""
@@ -130,8 +132,9 @@ class TestCreateHandler:
             handler(x=10, y=None)
             mock_echo.assert_called_once()
             call_args = mock_echo.call_args[0][0]
-            assert isinstance(call_args, TestOutput)
-            assert call_args.result == 11  # 10 + default 1
+            assert isinstance(call_args, str)
+            parsed = json.loads(call_args)
+            assert parsed["result"] == 11  # 10 + default 1
 
     def test_create_handler_execution_error(self, sample_function_info):
         """Handler echoes error and raises Abort when function fails."""

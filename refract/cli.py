@@ -16,8 +16,10 @@ Usage::
     # [project.scripts]
     # my-project = "my_project.app:app.run_cli"
 """
+import json
 import click
 import uvicorn
+from pydantic import BaseModel
 from typing import Dict, Any, Callable, Optional
 
 from refract.api import create_api_app
@@ -240,7 +242,10 @@ def _create_handler(func_name: str, func_info) -> Callable:
         try:
             func_params = _prepare_function_params(func_info, kwargs)
             result = func_info.func(**func_params)
-            click.echo(result)
+            if isinstance(result, BaseModel):
+                click.echo(result.model_dump_json(indent=2))
+            else:
+                click.echo(result)
         except Exception as e:
             click.echo(f"Error executing {func_name}: {str(e)}", err=True)
             raise click.Abort()
