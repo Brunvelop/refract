@@ -97,6 +97,7 @@ class FunctionSchema(BaseModel):
     name: str = Field(description="Function name")
     description: str = Field(description="Function description")
     http_methods: list[HttpMethod] = Field(description="Supported HTTP methods")
+    interfaces: list[Interface] = Field(default_factory=lambda: list(DEFAULT_INTERFACES), description="Interfaces where this function is exposed")
     parameters: list[ParamSchema] = Field(description="Function parameters")
     streaming: bool = Field(default=False, description="Whether this function supports SSE streaming")
     response_schema: dict | None = Field(default=None, description="JSON Schema of the response model")
@@ -124,6 +125,7 @@ class FunctionInfo(BaseModel):
             name=self.name,
             description=self.description,
             http_methods=self.http_methods,
+            interfaces=self.interfaces,
             parameters=self.params,  # ParamSchema serializes automatically
             streaming=self.streaming,
             response_schema=self.return_type.model_json_schema() if self.return_type else None

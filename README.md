@@ -383,7 +383,7 @@ refract/
 │       ├── element.js    # AutoFunctionElement — Layer 3 (Lit card UI)
 │       ├── generator.js  # AutoElementGenerator — zero-config custom elements
 │       └── views/
-│           └── functions.html  # Default web UI (served at / and /functions)
+│           └── dashboard.html  # Default web UI (served at / and /functions)
 ├── demo.py               # Runnable demo — try it right now
 └── tests/
     ├── conftest.py

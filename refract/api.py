@@ -48,7 +48,10 @@ def create_router(registry: Registry) -> APIRouter:
     def _make_details_handler(registry_ref):
         async def list_functions_details() -> dict:
             schemas = registry_ref.get_all_schemas()
-            return {"functions": {s.name: s for s in schemas}}
+            return {
+                "project": registry_ref.name,
+                "functions": {s.name: s for s in schemas},
+            }
         return list_functions_details
 
     def _make_health_handler(registry_ref):
@@ -209,11 +212,11 @@ def _register_html_pages(app: FastAPI) -> None:
 
     @app.get("/")
     async def root():
-        return FileResponse(os.path.join(views_dir, "functions.html"))
+        return FileResponse(os.path.join(views_dir, "dashboard.html"))
 
     @app.get("/functions")
     async def functions_ui():
-        return FileResponse(os.path.join(views_dir, "functions.html"))
+        return FileResponse(os.path.join(views_dir, "dashboard.html"))
 
 
 def _register_static_files(app: FastAPI) -> None:
