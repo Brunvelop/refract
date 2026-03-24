@@ -718,6 +718,161 @@ class TestRefractClass:
         assert app2.function_count() == 0
 
 
+class TestGetModuleFilePath:
+    """Tests for _get_module_file_path()."""
+
+    def test_existing_stdlib_module_returns_path(self):
+        """A known pure-Python stdlib module (json) returns a non-None .py path."""
+        from refract.registry import _get_module_file_path
+        path = _get_module_file_path("json")
+        assert path is not None
+        assert path.endswith(".py")
+
+    def test_nonexistent_module_returns_none(self):
+        """A module that does not exist returns None."""
+        from refract.registry import _get_module_file_path
+        result = _get_module_file_path("nonexistent_pkg_xyz_abc_123")
+        assert result is None
+
+    def test_builtin_module_returns_none(self):
+        """Built-in modules (e.g. sys) have no .py file — returns None or a special path."""
+        from refract.registry import _get_module_file_path
+        # sys is a built-in; find_spec returns a spec with no origin or a
+        # frozen/built-in path. Either None or a non-.py string is acceptable.
+        result = _get_module_file_path("sys")
+        # The important thing is it doesn't raise
+        assert result is None or isinstance(result, str)
+
+    def test_refract_package_returns_path(self):
+        """refract itself resolves to a valid .py path."""
+        from refract.registry import _get_module_file_path
+        path = _get_module_file_path("refract.registry")
+        assert path is not None
+        assert path.endswith(".py")
+
+
+class TestDiscoverFlow:
+    """Tests for Registry._discover() with real temporary packages."""
+
+    def _make_package(self, tmp_path, pkg_name: str, module_content: str) -> None:
+        """Helper: write a minimal package with one module."""
+        pkg_dir = tmp_path / pkg_name
+        pkg_dir.mkdir()
+        (pkg_dir / "__init__.py").write_text("")
+        (pkg_dir / "funcs.py").write_text(module_content)
+
+    def test_discover_finds_registered_function(self, tmp_path):
+        """_discover imports a module with @register_function and adds it to pending."""
+        import sys
+        from refract.registry import Registry, _clear_pending, _pending_registrations
+
+        content = (
+            "from pydantic import BaseModel\n"
+            "from refract.registry import register_function\n\n"
+            "class Out(BaseModel):\n"
+            "    result: str\n\n"
+            "@register_function()\n"
+            "def disco_func(x: int) -> Out:\n"
+            "    '''Discover test function.'''\n"
+            "    return Out(result=str(x))\n"
+        )
+        self._make_package(tmp_path, "disco_pkg", content)
+        sys.path.insert(0, str(tmp_path))
+        try:
+            _clear_pending()
+            app = Registry("disco-test")
+            app._discover(["disco_pkg"])
+            # After _discover, pending has been populated (but not drained yet)
+            # We drain manually to check
+            found = any(f.name == "disco_func" for f in app._registry) or \
+                    any(f.name == "disco_func" for f in _pending_registrations)
+            assert found, "disco_func should have been discovered"
+        finally:
+            sys.path.remove(str(tmp_path))
+            for key in list(sys.modules.keys()):
+                if "disco_pkg" in key:
+                    del sys.modules[key]
+            _clear_pending()
+
+    def test_discover_skips_modules_without_decorator(self, tmp_path):
+        """_discover does not import plain modules (no @register_function)."""
+        import sys
+        from refract.registry import Registry, _clear_pending, _pending_registrations
+
+        content = "# plain module\ndef helper(): return 42\n"
+        self._make_package(tmp_path, "plain_pkg", content)
+        sys.path.insert(0, str(tmp_path))
+        try:
+            _clear_pending()
+            app = Registry("plain-test")
+            before_count = len(_pending_registrations)
+            app._discover(["plain_pkg"])
+            assert len(_pending_registrations) == before_count
+        finally:
+            sys.path.remove(str(tmp_path))
+            for key in list(sys.modules.keys()):
+                if "plain_pkg" in key:
+                    del sys.modules[key]
+            _clear_pending()
+
+    def test_discover_strict_raises_on_import_failure(self, tmp_path):
+        """_discover(strict=True) raises RegistryError when a module fails to import."""
+        import sys
+        from refract.registry import Registry, RegistryError, _clear_pending
+
+        # Module that has the decorator in AST but raises at import time
+        content = (
+            "from pydantic import BaseModel\n"
+            "from refract.registry import register_function\n\n"
+            "raise ImportError('deliberate failure')\n\n"
+            "class Out(BaseModel):\n"
+            "    result: str\n\n"
+            "@register_function()\n"
+            "def strict_func(x: int) -> Out:\n"
+            "    return Out(result=str(x))\n"
+        )
+        self._make_package(tmp_path, "strict_pkg", content)
+        sys.path.insert(0, str(tmp_path))
+        try:
+            _clear_pending()
+            app = Registry("strict-test")
+            with pytest.raises(RegistryError, match="Failed to load modules in strict mode"):
+                app._discover(["strict_pkg"], strict=True)
+        finally:
+            sys.path.remove(str(tmp_path))
+            for key in list(sys.modules.keys()):
+                if "strict_pkg" in key:
+                    del sys.modules[key]
+            _clear_pending()
+
+    def test_discover_non_strict_continues_on_import_failure(self, tmp_path):
+        """_discover(strict=False) logs and continues when a module fails to import."""
+        import sys
+        from refract.registry import Registry, _clear_pending
+
+        content = (
+            "from pydantic import BaseModel\n"
+            "from refract.registry import register_function\n\n"
+            "raise RuntimeError('oops')\n\n"
+            "@register_function()\n"
+            "def bad_func(x: int) -> None:\n"
+            "    pass\n"
+        )
+        self._make_package(tmp_path, "badmod_pkg", content)
+        sys.path.insert(0, str(tmp_path))
+        try:
+            _clear_pending()
+            app = Registry("non-strict-test")
+            # Should not raise
+            app._discover(["badmod_pkg"], strict=False)
+        finally:
+            sys.path.remove(str(tmp_path))
+            for key in list(sys.modules.keys()):
+                if "badmod_pkg" in key:
+                    del sys.modules[key]
+            _clear_pending()
+
+
 class TestDiscoverLockProtection:
     """Tests verifying _discover reads _pending_registrations under _pending_lock."""
 

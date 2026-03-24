@@ -648,6 +648,40 @@ class TestRefractCli:
         assert call_kwargs["host"] == "0.0.0.0"
         assert call_kwargs["port"] == 8000
 
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_app")
+    def test_serve_custom_host_port(self, mock_create_mcp, mock_uvicorn):
+        """serve command accepts custom --host and --port."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_create_mcp.return_value = MagicMock()
+
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["serve", "--host", "192.168.1.1", "--port", "9999"])
+
+        assert result.exit_code == 0
+        call_kwargs = mock_uvicorn.call_args[1]
+        assert call_kwargs["host"] == "192.168.1.1"
+        assert call_kwargs["port"] == 9999
+
+    @patch("uvicorn.run")
+    @patch("refract.cli.create_mcp_app")
+    def test_serve_echo_mentions_unified_or_api_mcp(self, mock_create_mcp, mock_uvicorn):
+        """serve command output mentions both API and MCP (unified server)."""
+        from refract import Refract
+        r = Refract("test-project")
+        mock_create_mcp.return_value = MagicMock()
+
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["serve"])
+
+        assert result.exit_code == 0
+        # Output should indicate it's the combined API+MCP server
+        output_lower = result.output.lower()
+        assert "api" in output_lower or "unified" in output_lower or "mcp" in output_lower
+
     # ------------------------------------------------------------------
     # Isolation: multiple Refract instances
     # ------------------------------------------------------------------
