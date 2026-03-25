@@ -18,7 +18,6 @@ Usage::
 """
 __all__ = ["create_cli"]
 
-import json
 import click
 import uvicorn
 from pydantic import BaseModel

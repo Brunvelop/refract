@@ -7,7 +7,7 @@ import os
 from typing import Any, Callable, Dict, Type
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, create_model
