@@ -268,6 +268,16 @@ class TestRefractCli:
         assert result.exit_code == 0
         assert "--verbose" in result.output or "-v" in result.output
 
+    def test_cli_has_version_flag(self):
+        """The Click group exposes --version flag and outputs a version string."""
+        from refract import Refract
+        r = Refract("test-project")
+        group = r.cli()
+        runner = CliRunner()
+        result = runner.invoke(group, ["--version"])
+        assert result.exit_code == 0
+        assert "version" in result.output.lower() or result.output.strip() != ""
+
     # ------------------------------------------------------------------
     # list command
     # ------------------------------------------------------------------

@@ -20,6 +20,7 @@ __all__ = ["create_cli"]
 
 import click
 import uvicorn
+from importlib.metadata import version as _pkg_version, PackageNotFoundError as _PkgNotFoundError
 from pydantic import BaseModel
 from typing import Dict, Any, Callable, Optional
 
@@ -27,6 +28,11 @@ from refract.api import create_api_app
 from refract.log_config import configure_cli_logging
 from refract.mcp import create_mcp_app, create_mcp_only_app
 from refract.registry import Registry
+
+try:
+    __version__ = _pkg_version("refract")
+except _PkgNotFoundError:
+    __version__ = "0.0.0-dev"
 
 
 # ============================================================================
@@ -68,6 +74,7 @@ def create_cli(registry: Registry) -> click.Group:
         A ``click.Group`` ready to serve as a CLI entry point.
     """
     @click.group(help=f"{registry.name} CLI")
+    @click.version_option(version=__version__)
     @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output (DEBUG level)')
     @click.pass_context
     def cli_group(ctx, verbose):
