@@ -12,6 +12,7 @@ from fastapi.routing import APIRouter
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, create_model
 
+from refract.log_config import configure_api_logging
 from refract.models import FunctionInfo
 from refract.registry import Registry
 from refract.sse import _create_stream_handler
@@ -98,6 +99,8 @@ def create_api_app(registry: Registry) -> FastAPI:
     Returns:
         A configured ``FastAPI`` application.
     """
+    configure_api_logging()
+
     try:
         from importlib.metadata import version as pkg_version
         _version = pkg_version("refract")

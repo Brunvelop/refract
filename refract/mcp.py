@@ -23,6 +23,7 @@ from fastapi import FastAPI
 from fastapi_mcp import FastApiMCP
 
 from refract.api import create_api_app, create_handler
+from refract.log_config import configure_api_logging
 from refract.registry import Registry
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,8 @@ def create_mcp_only_app(registry: Registry) -> FastAPI:
     Raises:
         RuntimeError: If MCP server initialisation fails.
     """
+    configure_api_logging()
+
     try:
         # Step 1: Create a bare FastAPI app (no full API layer)
         app = FastAPI(
