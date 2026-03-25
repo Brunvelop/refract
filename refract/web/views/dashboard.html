@@ -290,7 +290,7 @@
     <nav class="links-bar">
         <a class="link-chip" href="/docs" target="_blank">📖 Swagger UI</a>
         <a class="link-chip" href="/redoc" target="_blank">📄 ReDoc</a>
-        <a class="link-chip" href="/mcp" target="_blank">🤖 MCP endpoint</a>
+        <a class="link-chip" href="/mcp" target="_blank" id="mcpLink">🤖 MCP endpoint</a>
         <a class="link-chip" href="/health" target="_blank">❤️ Health</a>
         <a class="link-chip" href="/functions/details" target="_blank">🗂️ Schema JSON</a>
     </nav>
@@ -471,6 +471,17 @@
         container.classList.remove('hidden');
     }
 
+    // ── MCP availability check ───────────────────────────────────────────────
+
+    async function checkMcpAvailable() {
+        try {
+            const r = await fetch('/mcp', { method: 'HEAD' });
+            return r.status !== 404;
+        } catch {
+            return false;
+        }
+    }
+
     // ── Copy helpers ─────────────────────────────────────────────────────────
 
     window.copyMcpUrl = () => {
@@ -487,16 +498,34 @@
     async function init() {
         fetchHealth();
 
+        // Check MCP availability in parallel with function fetch
+        const [data, mcpAvailable] = await Promise.allSettled([
+            fetchFunctions(),
+            checkMcpAvailable(),
+        ]);
+
+        // Hide MCP UI elements if /mcp is not mounted
+        if (mcpAvailable.status === 'fulfilled' && !mcpAvailable.value) {
+            document.getElementById('mcpLink').classList.add('hidden');
+            document.getElementById('mcpCard').classList.add('hidden');
+        }
+
+        if (data.status === 'rejected') {
+            console.error('Dashboard init error:', data.reason);
+            document.getElementById('registryLoading').textContent = `❌ ${data.reason.message}`;
+            document.getElementById('elementsLoading').textContent = `❌ ${data.reason.message}`;
+            return;
+        }
+
         try {
-            const data = await fetchFunctions();
-            const functions = data.functions || {};
-            const projectName = data.project || 'Refract';
+            const functions = data.value.functions || {};
+            const projectName = data.value.project || 'Refract';
 
             renderRegistry(functions, projectName);
-            renderMcp(functions);
+            if (mcpAvailable.value) renderMcp(functions);
             await renderElements(functions);
         } catch (err) {
-            console.error('Dashboard init error:', err);
+            console.error('Dashboard render error:', err);
             document.getElementById('registryLoading').textContent = `❌ ${err.message}`;
             document.getElementById('elementsLoading').textContent = `❌ ${err.message}`;
         }
