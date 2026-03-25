@@ -221,9 +221,11 @@ export class RefractClient {
                     processedParams[key] = val;
                 }
             } else if (paramDef && paramDef.type === 'int') {
-                processedParams[key] = parseInt(val);
+                const parsed = parseInt(val);
+                processedParams[key] = isNaN(parsed) ? val : parsed;
             } else if (paramDef && paramDef.type === 'float') {
-                processedParams[key] = parseFloat(val);
+                const parsed = parseFloat(val);
+                processedParams[key] = isNaN(parsed) ? val : parsed;
             } else if (paramDef && paramDef.type === 'bool') {
                 processedParams[key] = (val === "true" || val === "1" || val === true);
             } else {
