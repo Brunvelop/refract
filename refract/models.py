@@ -3,6 +3,8 @@ Shared Pydantic models for core functions and all interfaces (CLI, API, MCP).
 These models define the input/output contracts for functions registered in the registry.
 """
 
+__all__ = ["ParamSchema", "FunctionInfo", "FunctionSchema", "HttpMethod", "Interface", "DEFAULT_HTTP_METHODS", "DEFAULT_INTERFACES"]
+
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from typing import Any, Callable, Literal, Union, get_origin, get_args
 

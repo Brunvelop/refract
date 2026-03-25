@@ -8,6 +8,8 @@ All noisy third-party prefixes are defined once in ``_NOISY_PREFIXES``.
 The ``startswith`` check covers sub-loggers automatically
 (e.g. ``mcp.server.lowlevel`` is caught by the ``"mcp"`` prefix).
 """
+__all__ = ["ThirdPartyLogFilter", "configure_cli_logging", "configure_api_logging"]
+
 import logging
 
 # Third-party libraries that produce noisy logs at DEBUG level.
