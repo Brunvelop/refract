@@ -300,11 +300,11 @@ def _execute_function(
         logger.warning(f"{method} {func_info.name} param error: {e}")
         raise HTTPException(status_code=400, detail=f"Parameter error: {e}")
     except TypeError as e:
-        logger.warning(f"{method} {func_info.name} type error: {e}")
-        raise HTTPException(status_code=500, detail=f"Type error: {e}")
+        logger.error(f"{method} {func_info.name} type error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Type error in function execution")
     except Exception as e:
-        logger.error(f"{method} {func_info.name} error: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
+        logger.error(f"{method} {func_info.name} error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 def _extract_params(

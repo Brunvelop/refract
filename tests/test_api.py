@@ -586,7 +586,7 @@ class TestExecuteFunctionWithParams:
             execute_function_with_params(func_info, {"x": 5}, "POST")
 
         assert exc_info.value.status_code == 500
-        assert "Internal error" in str(exc_info.value.detail)
+        assert exc_info.value.detail == "Internal server error"
 
     @patch('refract.api.logger')
     def test_execute_function_with_params_logging(self, mock_logger, sample_function_info):
@@ -641,7 +641,7 @@ class TestExecuteFunctionWithParams:
             execute_function_with_params(func_info, {"x": -5}, "POST")
 
         assert exc_info.value.status_code == 500
-        assert "Internal error" in str(exc_info.value.detail)
+        assert exc_info.value.detail == "Internal server error"
 
     @patch('refract.api.logger')
     def test_execute_function_error_logging(self, mock_logger):
