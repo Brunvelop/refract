@@ -131,4 +131,3 @@ class FunctionInfo(BaseModel):
             response_schema=self.return_type.model_json_schema() if self.return_type else None
         )
 
-

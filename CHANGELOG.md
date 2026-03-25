@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   AI-agent interoperability.
 - **SSE streaming** — Server-Sent Events support for long-running functions,
   with helpers for both server-side emission and client-side consumption.
-- **Web dashboard** — Built-in HTML dashboard (`/dashboard`) with a Lit-based
+- **Web dashboard** — Built-in HTML dashboard (`/` and `/functions`) with a Lit-based
   web component (`<refract-element>`) for exploring and invoking registered
   functions directly from the browser.
 - **JavaScript client** (`RefractClient`) — Vanilla JS HTTP client with schema
