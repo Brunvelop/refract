@@ -284,6 +284,35 @@ def _create_dynamic_model(func_info: FunctionInfo, for_post: bool = True) -> Typ
 # Internal helpers — function execution
 # ---------------------------------------------------------------------------
 
+def _handle_execution_error(
+    func_info: FunctionInfo,
+    method: str,
+    error: Exception,
+) -> None:
+    """Raise the appropriate ``HTTPException`` for a function execution error.
+
+    Shared by ``_execute_function`` and ``_execute_function_async`` to avoid
+    duplicating the three-branch error handling logic.
+
+    Args:
+        func_info: Function metadata (used for log messages).
+        method: HTTP method string (used for log messages).
+        error: The exception that was caught.
+
+    Raises:
+        HTTPException: Always — 400 for parameter/type errors, 500 for all others.
+    """
+    if isinstance(error, ValueError):
+        logger.warning(f"{method} {func_info.name} param error: {error}")
+        raise HTTPException(status_code=400, detail=f"Parameter error: {error}")
+    elif isinstance(error, TypeError):
+        logger.error(f"{method} {func_info.name} type error: {error}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Type error in function execution")
+    else:
+        logger.error(f"{method} {func_info.name} error: {error}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 def _execute_function(
     func_info: FunctionInfo,
     request_params: Dict[str, Any],
@@ -307,15 +336,8 @@ def _execute_function(
         logger.debug(f"{method} {func_info.name}: params={func_params}")
         result = func_info.func(**func_params)
         return _format_response(result)
-    except ValueError as e:
-        logger.warning(f"{method} {func_info.name} param error: {e}")
-        raise HTTPException(status_code=400, detail=f"Parameter error: {e}")
-    except TypeError as e:
-        logger.error(f"{method} {func_info.name} type error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Type error in function execution")
     except Exception as e:
-        logger.error(f"{method} {func_info.name} error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        _handle_execution_error(func_info, method, e)
 
 
 async def _execute_function_async(
@@ -344,15 +366,8 @@ async def _execute_function_async(
         logger.debug(f"{method} {func_info.name}: params={func_params}")
         result = await func_info.func(**func_params)
         return _format_response(result)
-    except ValueError as e:
-        logger.warning(f"{method} {func_info.name} param error: {e}")
-        raise HTTPException(status_code=400, detail=f"Parameter error: {e}")
-    except TypeError as e:
-        logger.error(f"{method} {func_info.name} type error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Type error in function execution")
     except Exception as e:
-        logger.error(f"{method} {func_info.name} error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        _handle_execution_error(func_info, method, e)
 
 
 def _extract_params(
