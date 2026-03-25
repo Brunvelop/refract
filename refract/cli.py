@@ -18,6 +18,8 @@ Usage::
 """
 __all__ = ["create_cli"]
 
+import asyncio
+import logging
 import click
 import uvicorn
 from importlib.metadata import version as _pkg_version, PackageNotFoundError as _PkgNotFoundError
@@ -139,11 +141,15 @@ def create_cli(registry: Registry) -> click.Group:
     return cli_group
 
 
+logger = logging.getLogger(__name__)
+
+
 def _register_commands(cli_group: click.Group, registry: Registry) -> None:
     """Register dynamic CLI commands from a Registry instance.
 
     Only functions that include ``"cli"`` in their ``interfaces`` list are
-    added as commands.
+    added as commands. Async functions are skipped with a warning — they are
+    not supported in the CLI interface.
 
     Args:
         cli_group: The Click group to add commands to.
@@ -151,6 +157,12 @@ def _register_commands(cli_group: click.Group, registry: Registry) -> None:
     """
     cli_functions = registry.get_functions_for_interface("cli")
     for func_info in cli_functions:
+        if asyncio.iscoroutinefunction(func_info.func):
+            logger.warning(
+                f"Skipping async function '{func_info.name}' for CLI "
+                f"(async functions are not supported in CLI interface)"
+            )
+            continue
         command_func = _create_handler(func_info.name, func_info)
         command_func = _add_command_options(command_func, func_info.params)
         cli_group.command(name=func_info.name, help=func_info.description)(command_func)
@@ -244,7 +256,16 @@ def _create_handler(func_name: str, func_info) -> Callable:
 
     Returns:
         Command function ready to be registered with Click
+
+    Raises:
+        TypeError: If the function is async (async functions are not supported in CLI).
     """
+    if asyncio.iscoroutinefunction(func_info.func):
+        raise TypeError(
+            f"Async functions are not supported in CLI interface. "
+            f"'{func_name}' is async. Use a sync wrapper or remove 'cli' from its interfaces."
+        )
+
     def command_func(**kwargs):
         """Execute the registered function with provided arguments."""
         try:

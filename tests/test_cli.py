@@ -111,6 +111,11 @@ class TestCreateHandler:
         assert handler.__name__ == "test_add_command"
         assert handler.__doc__ == sample_function_info.description
 
+    def test_create_handler_async_raises_type_error(self, async_sample_function_info):
+        """_create_handler raises TypeError when the function is async."""
+        with pytest.raises(TypeError, match="Async functions are not supported in CLI interface"):
+            _create_handler("async_test_add", async_sample_function_info)
+
     def test_create_handler_execution_success(self, sample_function_info):
         """Handler executes the underlying function and echoes result as JSON."""
         handler = _create_handler("test_add", sample_function_info)
@@ -712,3 +717,36 @@ class TestRefractCli:
 
         assert "test_add" in g1.commands
         assert "test_add" not in g2.commands
+
+    # ------------------------------------------------------------------
+    # Async function handling
+    # ------------------------------------------------------------------
+
+    def test_cli_skips_async_functions_with_warning(self, async_sample_function_info):
+        """Async functions registered with 'cli' interface are skipped with a warning."""
+        from refract import Refract
+        r = Refract("test-project")
+        r._registry.append(async_sample_function_info)
+
+        with patch("refract.cli.logger") as mock_logger:
+            group = r.cli()
+
+        # Async function should NOT appear as a CLI command
+        assert "async_test_add" not in group.commands
+        # But a warning should have been logged
+        mock_logger.warning.assert_called_once()
+        warning_msg = mock_logger.warning.call_args[0][0]
+        assert "async_test_add" in warning_msg
+        assert "async" in warning_msg.lower()
+
+    def test_cli_mixed_sync_async_only_sync_registered(self, sample_function_info, async_sample_function_info):
+        """When both sync and async functions are registered, only sync appears in CLI."""
+        from refract import Refract
+        r = Refract("test-project")
+        r._registry.append(sample_function_info)        # sync → should appear
+        r._registry.append(async_sample_function_info)  # async → should be skipped
+
+        group = r.cli()
+
+        assert "test_add" in group.commands
+        assert "async_test_add" not in group.commands

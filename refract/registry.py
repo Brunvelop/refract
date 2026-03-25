@@ -95,9 +95,11 @@ def register_function(
         stream_func: Async generator function for streaming. Required if streaming=True.
 
     Note:
-        Only synchronous functions are supported. If you register an
-        ``async def`` function, it will NOT be awaited — the coroutine
-        object will be returned instead of the actual result.
+        Async functions (``async def``) are supported for **API** and **MCP**
+        interfaces — they will be properly awaited.  The **CLI** interface only
+        supports synchronous functions; async functions registered with
+        ``interfaces=["cli"]`` (or the default interfaces) will be skipped with
+        a warning at CLI build time.
     """
     def decorator(func: Callable) -> Callable:
         try:

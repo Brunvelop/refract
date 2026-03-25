@@ -19,6 +19,7 @@ from refract.api import (
     _create_dynamic_model,
     _extract_params,
     _execute_function,
+    _execute_function_async,
     create_handler,
     _register_static_files,
     create_router,
@@ -664,6 +665,42 @@ class TestExecuteFunctionWithParams:
         assert "POST error_func param error" in log_call
         assert "Test error for logging" in log_call
 
+    @pytest.mark.asyncio
+    async def test_execute_function_async_success(self, async_sample_function_info):
+        """_execute_function_async returns correct result for a valid async function."""
+        result = await _execute_function_async(async_sample_function_info, {"x": 4, "y": 6}, "POST")
+        assert result["result"] == 10
+        assert result["success"] is True
+        assert result["message"] is None
+
+    @pytest.mark.asyncio
+    async def test_execute_function_async_value_error(self, async_sample_function_info):
+        """_execute_function_async raises HTTPException 400 on ValueError."""
+        # Trigger a ValueError via missing required param (goes through _extract_params)
+        with pytest.raises(HTTPException) as exc_info:
+            await _execute_function_async(async_sample_function_info, {}, "POST")
+        assert exc_info.value.status_code == 400
+        assert "Parameter error" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_execute_function_async_runtime_error(self):
+        """_execute_function_async raises HTTPException 500 on unexpected exceptions."""
+        async def boom(x: int) -> TestOutput:
+            raise RuntimeError("async boom")
+
+        func_info = FunctionInfo(
+            name="boom",
+            func=boom,
+            description="Async boom",
+            params=[ParamSchema(name="x", type=int, required=True, description="x")],
+            return_type=TestOutput,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _execute_function_async(func_info, {"x": 1}, "POST")
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "Internal server error"
+
 
 # ---------------------------------------------------------------------------
 # Tests: create_handler
@@ -693,6 +730,33 @@ class TestCreateHandler:
 
         request = model(x=5, y=3)
         result = handler(request)
+
+        assert result == {"result": 8, "success": True, "message": None}
+
+    def test_create_handler_post_async(self, async_sample_function_info):
+        """POST handler for an async function is itself an async coroutine function."""
+        handler, model = create_handler(async_sample_function_info, "POST")
+
+        assert callable(handler)
+        assert issubclass(model, BaseModel)
+        assert model.__name__ == "Async_Test_AddInput"
+        assert asyncio.iscoroutinefunction(handler)
+
+    def test_create_handler_get_async(self, async_sample_function_info):
+        """GET handler for an async function is itself an async coroutine function."""
+        handler, model = create_handler(async_sample_function_info, "GET")
+
+        assert callable(handler)
+        assert issubclass(model, BaseModel)
+        assert model.__name__ == "Async_Test_AddQueryParams"
+        assert asyncio.iscoroutinefunction(handler)
+
+    def test_handler_execution_post_async(self, async_sample_function_info):
+        """Async POST handler can be awaited and returns the correct result."""
+        handler, model = create_handler(async_sample_function_info, "POST")
+
+        request = model(x=5, y=3)
+        result = asyncio.get_event_loop().run_until_complete(handler(request))
 
         assert result == {"result": 8, "success": True, "message": None}
 
@@ -1102,4 +1166,64 @@ class TestCreateApiApp:
         client = TestClient(app)
 
         response = client.get("/validate_fn")  # Missing x
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Integration: async functions via TestClient
+# ---------------------------------------------------------------------------
+
+class TestAsyncFunctionIntegration:
+    """Integration tests for async registered functions served via TestClient."""
+
+    def _make_async_api_func_info(self, name="async_fn", http_methods=None):
+        """Create an async FunctionInfo with 'api' interface."""
+        async def _async_fn(x: int, y: int = 1) -> TestOutput:
+            return TestOutput(result=x + y, success=True)
+
+        _async_fn.__name__ = name
+        return FunctionInfo(
+            name=name,
+            func=_async_fn,
+            description=f"Async test function {name}",
+            params=[
+                ParamSchema(name="x", type=int, required=True, description="x"),
+                ParamSchema(name="y", type=int, default=1, required=False, description="y"),
+            ],
+            http_methods=http_methods or ["GET", "POST"],
+            interfaces=["api"],
+            return_type=TestOutput,
+        )
+
+    def test_async_function_get_via_test_client(self):
+        """TestClient can call a GET endpoint backed by an async function."""
+        func = self._make_async_api_func_info("async_add", http_methods=["GET"])
+        stub = _make_refract_stub(functions=[func])
+        app = create_api_app(stub)
+        client = TestClient(app)
+
+        response = client.get("/async_add?x=3&y=7")
+        assert response.status_code == 200
+        assert response.json()["result"] == 10
+        assert response.json()["success"] is True
+
+    def test_async_function_post_via_test_client(self):
+        """TestClient can call a POST endpoint backed by an async function."""
+        func = self._make_async_api_func_info("async_calc", http_methods=["POST"])
+        stub = _make_refract_stub(functions=[func])
+        app = create_api_app(stub)
+        client = TestClient(app)
+
+        response = client.post("/async_calc", json={"x": 10, "y": 5})
+        assert response.status_code == 200
+        assert response.json()["result"] == 15
+
+    def test_async_function_missing_required_param_returns_422(self):
+        """Missing required param for async function returns 422."""
+        func = self._make_async_api_func_info("async_strict", http_methods=["GET"])
+        stub = _make_refract_stub(functions=[func])
+        app = create_api_app(stub)
+        client = TestClient(app)
+
+        response = client.get("/async_strict")  # Missing x
         assert response.status_code == 422

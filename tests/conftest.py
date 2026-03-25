@@ -75,6 +75,25 @@ def sample_function_info(sample_function):
 
 
 @pytest.fixture
+def async_sample_function_info():
+    """Sample async FunctionInfo for testing async handler support."""
+    async def async_test_add(x: int, y: int = 1) -> TestOutput:
+        return TestOutput(result=x + y, success=True)
+
+    return FunctionInfo(
+        name="async_test_add",
+        func=async_test_add,
+        description="Async add two numbers",
+        params=[
+            ParamSchema(name="x", type=int, required=True, description="First number"),
+            ParamSchema(name="y", type=int, default=1, required=False, description="Second number"),
+        ],
+        http_methods=["GET", "POST"],
+        return_type=TestOutput,
+    )
+
+
+@pytest.fixture
 def mock_uvicorn():
     """Mock uvicorn.run for CLI testing."""
     with patch('uvicorn.run') as mock_run:

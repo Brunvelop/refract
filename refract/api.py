@@ -1,7 +1,8 @@
 """FastAPI server with dynamic endpoints generated from a Refract registry."""
 
-__all__ = ["create_api_app", "create_router", "create_handler"]
+__all__ = ["create_api_app", "create_router", "create_handler", "_execute_function_async"]
 
+import asyncio
 import logging
 import os
 from typing import Any, Callable, Dict, Type
@@ -128,6 +129,7 @@ def create_handler(func_info: FunctionInfo, method: str):
     """Create endpoint handler for a registered function.
 
     Used by both ``api.py`` and ``mcp.py`` to create FastAPI handlers.
+    Automatically detects async functions and creates async handlers for them.
 
     Args:
         func_info: The function metadata from the registry.
@@ -138,13 +140,22 @@ def create_handler(func_info: FunctionInfo, method: str):
     """
     is_post = method.upper() == "POST"
     DynamicModel = _create_dynamic_model(func_info, for_post=is_post)
+    is_async = asyncio.iscoroutinefunction(func_info.func)
 
     if is_post:
-        def handler(request: DynamicModel):
-            return _execute_function(func_info, request.model_dump(), method)
+        if is_async:
+            async def handler(request: DynamicModel):
+                return await _execute_function_async(func_info, request.model_dump(), method)
+        else:
+            def handler(request: DynamicModel):
+                return _execute_function(func_info, request.model_dump(), method)
     else:
-        def handler(query_params: DynamicModel = Depends()):
-            return _execute_function(func_info, query_params.model_dump(), method)
+        if is_async:
+            async def handler(query_params: DynamicModel = Depends()):
+                return await _execute_function_async(func_info, query_params.model_dump(), method)
+        else:
+            def handler(query_params: DynamicModel = Depends()):
+                return _execute_function(func_info, query_params.model_dump(), method)
 
     return handler, DynamicModel
 
@@ -295,6 +306,43 @@ def _execute_function(
         func_params = _extract_params(func_info, request_params)
         logger.debug(f"{method} {func_info.name}: params={func_params}")
         result = func_info.func(**func_params)
+        return _format_response(result)
+    except ValueError as e:
+        logger.warning(f"{method} {func_info.name} param error: {e}")
+        raise HTTPException(status_code=400, detail=f"Parameter error: {e}")
+    except TypeError as e:
+        logger.error(f"{method} {func_info.name} type error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Type error in function execution")
+    except Exception as e:
+        logger.error(f"{method} {func_info.name} error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def _execute_function_async(
+    func_info: FunctionInfo,
+    request_params: Dict[str, Any],
+    method: str,
+) -> Dict[str, Any]:
+    """Execute a registered async function with parameters and handle errors.
+
+    Async counterpart of ``_execute_function`` — awaits the coroutine returned
+    by the registered function.
+
+    Args:
+        func_info: Function metadata.
+        request_params: Raw parameters from the request.
+        method: HTTP method string (used for logging).
+
+    Returns:
+        Serialised response dict.
+
+    Raises:
+        HTTPException: 400 for parameter/type errors, 500 for runtime errors.
+    """
+    try:
+        func_params = _extract_params(func_info, request_params)
+        logger.debug(f"{method} {func_info.name}: params={func_params}")
+        result = await func_info.func(**func_params)
         return _format_response(result)
     except ValueError as e:
         logger.warning(f"{method} {func_info.name} param error: {e}")
