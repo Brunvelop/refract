@@ -224,6 +224,8 @@ export class RefractClient {
                 processedParams[key] = parseInt(val);
             } else if (paramDef && paramDef.type === 'float') {
                 processedParams[key] = parseFloat(val);
+            } else if (paramDef && paramDef.type === 'bool') {
+                processedParams[key] = (val === "true" || val === "1" || val === true);
             } else {
                 processedParams[key] = val;
             }
