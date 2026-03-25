@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Registry** — core decorator-based function registry (`@app.register`) with
+- **Registry** — core decorator-based function registry (`@register_function()`) with
   automatic schema introspection from type hints and docstrings.
 - **REST API** — FastAPI application factory (`Refract.api()`) exposing
   registered functions as GET/POST endpoints with automatic request/response

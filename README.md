@@ -98,8 +98,7 @@ The return type becomes the FastAPI `response_model` — precise OpenAPI schema,
 )
 ```
 
-> **Note:** Only synchronous functions are supported. `async def` functions
-> will not be awaited correctly.
+> **Note:** `async def` functions are fully supported on **API** and **MCP** interfaces — they will be properly awaited. The **CLI** interface only supports synchronous functions; async functions are automatically skipped with a warning at CLI build time.
 
 ---
 
