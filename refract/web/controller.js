@@ -177,6 +177,32 @@ export class AutoFunctionController extends LitElement {
     // EXECUTION LOGIC
     // ========================================================================
 
+    /**
+     * Executes the function with the current parameters and updates component state.
+     *
+     * **Envelope unwrap behavior:** The raw API response is always stored in
+     * `this.envelope`. If the response is an object with a `result` property,
+     * `this.result` is set to `data.result` (the unwrapped payload). Otherwise
+     * `this.result` mirrors `this.envelope` directly.
+     *
+     * ```
+     * API response: { result: 42, success: true, message: "" }
+     *   → this.envelope = { result: 42, success: true, message: "" }
+     *   → this.result   = 42                          // unwrapped
+     *
+     * API response: { items: ["a", "b"], total: 2 }
+     *   → this.envelope = { items: ["a", "b"], total: 2 }
+     *   → this.result   = { items: ["a", "b"], total: 2 } // same reference
+     * ```
+     *
+     * The same unwrap logic is applied by the static helper
+     * {@link AutoFunctionController.executeFunction}.
+     *
+     * @returns {Promise<any>} The unwrapped payload (`this.result`).
+     * @fires before-execute
+     * @fires after-execute
+     * @fires execute-error
+     */
     async execute() {
         // 1. Validate state (params vs funcInfo)
         if (!this.validate()) {
