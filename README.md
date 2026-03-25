@@ -137,17 +137,25 @@ my-project --verbose serve   # Enable DEBUG logging
 
 > **No boilerplate.** The `discover=` list tells Refract which packages to scan for `@register_function` decorators. Everything else is automatic.
 
-> **Advanced uvicorn options** — The built-in `serve` commands are convenience wrappers that support `--host` and `--port`. Features like auto-reload, multiple workers, or custom log levels require uvicorn to be invoked with a **string import path**, which is incompatible with dynamically created app instances. Use uvicorn directly for those cases:
+> **Advanced uvicorn options** — The built-in `serve` commands are convenience wrappers that support `--host` and `--port`. Features like auto-reload, multiple workers, or custom log levels require uvicorn to be invoked with a **string import path** pointing to an ASGI application. `app.run_cli` is a Click group, not an ASGI app — expose `app.api()` as a module-level variable instead:
+>
+> ```python
+> # my_project/app.py
+> from refract import Refract
+>
+> app = Refract("my-project", discover=["my_project.core"])
+> fastapi_app = app.api()  # ASGI app — this is what uvicorn needs
+> ```
 >
 > ```bash
 > # Auto-reload in development
-> uvicorn my_project.app:app.run_cli --reload
+> uvicorn my_project.app:fastapi_app --reload
 >
 > # Multiple workers for production
-> uvicorn my_project.app:app.run_cli --workers 4 --host 0.0.0.0 --port 8000
+> uvicorn my_project.app:fastapi_app --workers 4 --host 0.0.0.0 --port 8000
 >
 > # Custom log level
-> uvicorn my_project.app:app.run_cli --log-level warning
+> uvicorn my_project.app:fastapi_app --log-level warning
 > ```
 >
 > See the [uvicorn docs](https://www.uvicorn.org/settings/) for the full list of available options.
