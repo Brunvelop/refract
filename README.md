@@ -100,6 +100,8 @@ The return type becomes the FastAPI `response_model` — precise OpenAPI schema,
 
 > **Note:** `async def` functions are fully supported on **API** and **MCP** interfaces — they will be properly awaited. The **CLI** interface only supports synchronous functions; async functions are automatically skipped with a warning at CLI build time.
 
+> **CLI limitations:** Parameters with complex types (`list`, `dict`, `List[str]`, `Dict[str, int]`, etc.) fall back to plain strings in the CLI interface. Click only natively supports `int`, `float`, `bool`, and `str`. For functions that require structured inputs, consider restricting them to `interfaces=["api", "mcp"]`, or accept a JSON string and parse it inside the function.
+
 ---
 
 ## 📐 Levels of complexity

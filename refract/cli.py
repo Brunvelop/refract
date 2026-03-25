@@ -176,6 +176,14 @@ def _get_click_type(param_type: type, choices: Optional[list] = None) -> Any:
     """Get appropriate Click type for parameter.
 
     Maps Python types to Click parameter types with support for choices.
+    Only ``int``, ``float``, ``bool``, and ``str`` have native Click
+    equivalents.  Any other type (``list``, ``dict``, ``List[str]``,
+    ``Dict[str, int]``, custom classes, etc.) falls back to
+    ``click.STRING`` — the value arrives as a raw string and is **not**
+    automatically parsed or validated by Click.  For functions that
+    require structured inputs, consider restricting them to
+    ``interfaces=["api", "mcp"]``, or accept a JSON string and parse it
+    inside the function body.
 
     Args:
         param_type: Python type annotation from function signature
