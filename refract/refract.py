@@ -14,6 +14,9 @@ graph acyclic:
     mcp        → api, registry
     registry   → models
 """
+
+__all__ = ["Refract"]
+
 from fastapi import FastAPI
 from fastapi.routing import APIRouter
 import click
