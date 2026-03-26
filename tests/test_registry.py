@@ -519,6 +519,45 @@ class TestBaseModelSupport:
         assert issubclass(func_info.return_type, BaseModel)
 
 
+class TestRegistryCurrent:
+    """Tests for Registry.current() — Flask current_app pattern."""
+
+    def test_current_raises_before_any_instance(self, monkeypatch):
+        """current() raises RuntimeError when no instance has been created yet."""
+        import refract.registry as reg_module
+        monkeypatch.setattr(reg_module, "_current_instance", None)
+
+        with pytest.raises(RuntimeError, match="No Refract/Registry instance has been created"):
+            reg_module.Registry.current()
+
+    def test_current_returns_instance_after_creation(self):
+        """current() returns the Refract instance immediately after it is created."""
+        app = Refract("current-test")
+        assert Refract.current() is app
+
+    def test_current_returns_last_instance(self):
+        """current() returns the most recently created instance (last-wins)."""
+        app1 = Refract("first-current")
+        app2 = Refract("second-current")
+
+        assert Refract.current() is app2
+        assert Refract.current() is not app1
+
+    def test_current_error_message_is_actionable(self, monkeypatch):
+        """RuntimeError message from current() mentions how to fix the problem."""
+        import refract.registry as reg_module
+        monkeypatch.setattr(reg_module, "_current_instance", None)
+
+        with pytest.raises(RuntimeError, match="Ensure you instantiate Refract\\(\\)"):
+            reg_module.Registry.current()
+
+    def test_current_accessible_via_refract_subclass(self):
+        """Refract.current() works because Refract inherits current() from Registry."""
+        from refract import Refract as RefractCls
+        app = RefractCls("subclass-current")
+        assert RefractCls.current() is app
+
+
 class TestRefractClass:
     """Tests for the Refract instance-based registry class."""
 

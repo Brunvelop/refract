@@ -72,6 +72,12 @@ _pending_lock = threading.Lock()
 _pending_registrations: list[FunctionInfo] = []
 _pending_stream_funcs: dict[str, Callable] = {}
 
+# Most recently created Registry/Refract instance.
+# Set in Registry.__init__ so that application-layer code can retrieve the
+# "ambient" instance via Registry.current() without importing the concrete
+# module that created it — identical to Flask's ``current_app`` pattern.
+_current_instance: "Registry | None" = None
+
 
 class RegistryError(Exception):
     """Custom exception for registry-related errors."""
@@ -290,6 +296,39 @@ class Registry:
         self._discover_lock = threading.Lock()
 
         self._drain_pending()
+
+        global _current_instance
+        _current_instance = self
+
+    # ------------------------------------------------------------------
+    # Class-level access
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def current(cls) -> "Registry":
+        """Return the most recently created Registry/Refract instance.
+
+        This follows the Flask ``current_app`` pattern: application code
+        that needs access to the registry can call ``Refract.current()``
+        instead of importing the concrete instance, avoiding circular
+        imports between the app module and business-logic modules.
+
+        Example::
+
+            from refract import Refract
+
+            # In a business-logic module that must not import app.py:
+            mcp_functions = Refract.current().get_functions_for_interface("mcp")
+
+        Raises:
+            RuntimeError: If no instance has been created yet.
+        """
+        if _current_instance is None:
+            raise RuntimeError(
+                "No Refract/Registry instance has been created. "
+                "Ensure you instantiate Refract() before calling .current()."
+            )
+        return _current_instance
 
     # ------------------------------------------------------------------
     # Discovery
