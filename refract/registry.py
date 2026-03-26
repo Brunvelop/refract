@@ -285,15 +285,33 @@ class Registry:
         self._registry: list[FunctionInfo] = []
         self._stream_registry: dict[str, Callable] = {}
         self._custom_commands: list[tuple[str, Callable, dict]] = []
-
-        if discover:
-            self._discover(discover)
+        self._discover_packages = discover
+        self._discovered = False
+        self._discover_lock = threading.Lock()
 
         self._drain_pending()
 
     # ------------------------------------------------------------------
     # Discovery
     # ------------------------------------------------------------------
+
+    def _ensure_discovered(self) -> None:
+        """Trigger deferred discovery on first query (if packages were provided).
+
+        Uses double-checked locking to be thread-safe. Sets ``_discovered``
+        to ``True`` **before** calling ``_discover()`` to prevent re-entrant
+        recursion in case a module being discovered queries this registry
+        at import time.
+        """
+        if self._discovered:
+            return
+        with self._discover_lock:
+            if self._discovered:  # Double-check inside the lock
+                return
+            self._discovered = True  # Set before _discover() to prevent recursion
+            if self._discover_packages:
+                self._discover(self._discover_packages)
+                self._drain_pending()
 
     def _drain_pending(self) -> None:
         """Drain the global pending buffer into this instance's registry."""
@@ -383,6 +401,7 @@ class Registry:
 
     def get_all_functions(self) -> list[FunctionInfo]:
         """Return all functions registered in this instance."""
+        self._ensure_discovered()
         return list(self._registry)
 
     def get_functions_for_interface(self, interface: Interface) -> list[FunctionInfo]:
@@ -391,10 +410,12 @@ class Registry:
         Args:
             interface: One of ``"api"``, ``"cli"``, or ``"mcp"``.
         """
+        self._ensure_discovered()
         return [f for f in self._registry if interface in f.interfaces]
 
     def get_all_schemas(self) -> list[FunctionSchema]:
         """Return serialisable schemas for all functions in this instance."""
+        self._ensure_discovered()
         return [info.to_schema() for info in self._registry]
 
     def get_function_by_name(self, name: str) -> FunctionInfo | None:
@@ -403,6 +424,7 @@ class Registry:
         Args:
             name: Exact function name.
         """
+        self._ensure_discovered()
         return next((f for f in self._registry if f.name == name), None)
 
     def get_stream_func(self, name: str) -> Callable | None:
@@ -411,10 +433,12 @@ class Registry:
         Args:
             name: Function name.
         """
+        self._ensure_discovered()
         return self._stream_registry.get(name)
 
     def function_count(self) -> int:
         """Return the number of functions registered in this instance."""
+        self._ensure_discovered()
         return len(self._registry)
 
     def clear(self) -> None:
