@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refract — Frontend Layers</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --muted: #64748b;
+            --accent: #6366f1;
+            --accent-light: #eef2ff;
+            --green: #22c55e;
+            --green-light: #dcfce7;
+            --green-text: #166534;
+            --radius: 0.75rem;
+            --radius-sm: 0.375rem;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 0.9375rem;
+            line-height: 1.6;
+        }
+
+        .shell { max-width: 64rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+        /* ── Header ── */
+        .header { margin-bottom: 2.5rem; }
+        .header h1 { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+        .header h1 span { color: var(--accent); }
+        .header p { color: var(--muted); margin-top: 0.375rem; font-size: 0.875rem; }
+        .header nav { margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .header nav a {
+            font-size: 0.8125rem; color: var(--muted); text-decoration: none;
+            padding: 0.25rem 0.625rem; border: 1px solid var(--border); border-radius: 9999px;
+            background: var(--surface);
+        }
+        .header nav a:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-light); }
+
+        /* ── Sections ── */
+        .section { margin-bottom: 2.5rem; }
+        .section-header { margin-bottom: 1rem; }
+        .section-title {
+            font-size: 1rem; font-weight: 600;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .section-title code {
+            font-size: 0.8125rem; font-family: ui-monospace, monospace;
+            background: var(--accent-light); color: var(--accent);
+            padding: 0.125rem 0.375rem; border-radius: 0.25rem;
+        }
+        .section-desc { color: var(--muted); font-size: 0.8125rem; margin-top: 0.25rem; }
+
+        /* ── Code snippet ── */
+        .snippet {
+            background: #1e293b; color: #e2e8f0;
+            font-family: ui-monospace, monospace; font-size: 0.8125rem;
+            padding: 0.875rem 1rem; border-radius: var(--radius-sm);
+            margin-bottom: 1rem; overflow-x: auto; white-space: pre;
+        }
+        .snippet .kw  { color: #818cf8; }
+        .snippet .str { color: #86efac; }
+        .snippet .cmt { color: #64748b; }
+        .snippet .tag { color: #f9a8d4; }
+        .snippet .fn  { color: #93c5fd; }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1.25rem;
+        }
+
+        /* ── Grid ── */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        /* ── Layer 2: BMI custom element ── */
+        bmi-calculator {
+            display: block;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            background: var(--surface);
+        }
+
+        /* ── Layer 1: vanilla JS ── */
+        #l1-form { display: flex; flex-direction: column; gap: 0.75rem; }
+        #l1-form textarea {
+            padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 0.875rem; font-family: inherit; resize: vertical; min-height: 5rem;
+            background: var(--bg); color: var(--text);
+        }
+        #l1-form textarea:focus { outline: none; border-color: var(--accent); }
+        #l1-form label { font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
+
+        .btn {
+            padding: 0.5rem 1.25rem;
+            background: linear-gradient(to right, #4f46e5, #7c3aed);
+            color: white; border: none; border-radius: var(--radius-sm);
+            font-size: 0.875rem; font-weight: 500; cursor: pointer;
+            transition: opacity 0.15s; align-self: flex-start;
+        }
+        .btn:hover:not(:disabled) { opacity: 0.88; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        #l1-result, #sse-output {
+            font-family: ui-monospace, monospace; font-size: 0.8125rem;
+            background: var(--green-light); color: var(--green-text);
+            border: 1px solid #86efac; border-radius: var(--radius-sm);
+            padding: 0.75rem; white-space: pre-wrap; display: none;
+        }
+        #l1-result.error, #sse-output.error {
+            background: #fee2e2; color: #991b1b; border-color: #fca5a5;
+        }
+
+        /* ── SSE streaming ── */
+        #sse-form { display: flex; flex-direction: column; gap: 0.75rem; }
+        #sse-form input[type="text"] {
+            padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 0.875rem; background: var(--bg); color: var(--text);
+        }
+        #sse-form input:focus { outline: none; border-color: var(--accent); }
+        #sse-tokens {
+            min-height: 2.5rem; padding: 0.75rem;
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            background: var(--bg); font-size: 0.875rem; color: var(--text);
+            line-height: 1.8;
+        }
+        .token {
+            display: inline-block; margin: 0.125rem;
+            padding: 0.125rem 0.375rem;
+            background: var(--accent-light); color: var(--accent);
+            border-radius: 0.25rem; font-size: 0.8125rem;
+            animation: pop 0.15s ease;
+        }
+        @keyframes pop {
+            from { transform: scale(0.8); opacity: 0; }
+            to   { transform: scale(1); opacity: 1; }
+        }
+        .sse-done {
+            font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem;
+        }
+
+        /* ── Divider ── */
+        hr { border: none; border-top: 1px solid var(--border); margin: 0.25rem 0 1.5rem; }
+    </style>
+
+    <!-- Zero-config auto-generator — registers <auto-*> elements for every function -->
+    <script type="module" src="/elements/generator.js"></script>
+</head>
+<body>
+<div class="shell">
+
+    <!-- Header -->
+    <header class="header">
+        <h1>🔬 Refract — <span>Frontend Layers</span></h1>
+        <p>One Python function. Four interfaces. Three JS layers. All in one demo.</p>
+        <nav>
+            <a href="/dashboard">🔬 Dashboard</a>
+            <a href="/docs" target="_blank">📖 Swagger</a>
+            <a href="/functions/details" target="_blank">🗂️ Schema</a>
+            <a href="/health" target="_blank">❤️ Health</a>
+        </nav>
+    </header>
+
+
+    <!-- ── Layer 0: Zero-config ─────────────────────────────────────────── -->
+    <section class="section">
+        <div class="section-header">
+            <div class="section-title">
+                ✨ Zero-config &nbsp;<code>generator.js</code>
+            </div>
+            <p class="section-desc">
+                Load one script — <code>&lt;auto-{funcName}&gt;</code> elements are registered automatically.
+                No configuration, no code.
+            </p>
+        </div>
+
+        <div class="snippet"><span class="cmt">&lt;!-- 1. Load the generator (once, in &lt;head&gt;) --&gt;</span>
+<span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/elements/generator.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+
+<span class="cmt">&lt;!-- 2. Drop any &lt;auto-{funcName}&gt; anywhere in the page --&gt;</span>
+<span class="tag">&lt;auto-add&gt;&lt;/auto-add&gt;</span>
+<span class="tag">&lt;auto-search&gt;&lt;/auto-search&gt;</span></div>
+
+        <div class="grid-2">
+            <auto-add></auto-add>
+            <auto-search></auto-search>
+        </div>
+    </section>
+
+    <hr>
+
+    <!-- ── Layer 3: AutoFunctionElement ─────────────────────────────────── -->
+    <section class="section">
+        <div class="section-header">
+            <div class="section-title">
+                🃏 Layer 3 &nbsp;<code>AutoFunctionElement</code>
+            </div>
+            <p class="section-desc">
+                Ready-to-use card UI. Specify <code>func-name</code> — form fields are generated from the schema.
+            </p>
+        </div>
+
+        <div class="snippet"><span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/elements/element.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+
+<span class="tag">&lt;auto-function-element</span> func-name=<span class="str">"greet"</span><span class="tag">&gt;&lt;/auto-function-element&gt;</span>
+<span class="tag">&lt;auto-function-element</span> func-name=<span class="str">"bmi"</span><span class="tag">&gt;&lt;/auto-function-element&gt;</span></div>
+
+        <div class="grid-2">
+            <auto-function-element func-name="greet"></auto-function-element>
+            <auto-function-element func-name="bmi"></auto-function-element>
+        </div>
+    </section>
+
+    <hr>
+
+    <!-- ── Layer 2: AutoFunctionController ──────────────────────────────── -->
+    <section class="section">
+        <div class="section-header">
+            <div class="section-title">
+                🎮 Layer 2 &nbsp;<code>AutoFunctionController</code>
+            </div>
+            <p class="section-desc">
+                Extend the controller to build custom UIs. State, validation, and API calls are handled for you.
+                Only <code>render()</code> is yours.
+            </p>
+        </div>
+
+        <div class="snippet"><span class="kw">import</span> { AutoFunctionController } <span class="kw">from</span> <span class="str">'/elements/controller.js'</span>;
+
+<span class="kw">class</span> <span class="fn">BmiCalculator</span> <span class="kw">extends</span> AutoFunctionController {
+  <span class="fn">render</span>() {
+    <span class="kw">const</span> bmi = <span class="kw">this</span>.result?.bmi;
+    <span class="kw">return</span> html`
+      &lt;input @change=${<span class="fn">e</span> =&gt; <span class="kw">this</span>.<span class="fn">setParam</span>(<span class="str">'weight_kg'</span>, e.target.value)} /&gt;
+      &lt;button @click=${<span class="kw">this</span>.execute}&gt;Calculate&lt;/button&gt;
+      ${bmi ? html`&lt;big&gt;<span class="str">${bmi}</span>&lt;/big&gt; — ${<span class="kw">this</span>.result.category}` : <span class="str">''</span>}
+    `;
+  }
+}
+customElements.<span class="fn">define</span>(<span class="str">'bmi-calculator'</span>, BmiCalculator);</div>
+
+        <bmi-calculator func-name="bmi"></bmi-calculator>
+    </section>
+
+    <hr>
+
+    <!-- ── Layer 1: RefractClient ─────────────────────────────────────────── -->
+    <section class="section">
+        <div class="section-header">
+            <div class="section-title">
+                🔌 Layer 1 &nbsp;<code>RefractClient</code>
+            </div>
+            <p class="section-desc">
+                Pure HTTP client. No Lit, no components. Works in vanilla JS, tests, or any framework.
+                Calling the async-only <code>summarize</code> function here.
+            </p>
+        </div>
+
+        <div class="snippet"><span class="kw">import</span> { RefractClient } <span class="kw">from</span> <span class="str">'/elements/client.js'</span>;
+
+<span class="kw">const</span> api = <span class="kw">new</span> <span class="fn">RefractClient</span>();
+<span class="kw">const</span> result = <span class="kw">await</span> api.<span class="fn">call</span>(<span class="str">'summarize'</span>, { text: <span class="str">'...'</span>, max_words: <span class="str">5</span> });
+console.<span class="fn">log</span>(result); <span class="cmt">// { summary: "...", words: 5 }</span></div>
+
+        <div class="card">
+            <div id="l1-form">
+                <label for="l1-text">Text to summarize</label>
+                <textarea id="l1-text" placeholder="Type something long here…">Refract turns any typed Python function into a REST API, a CLI, MCP tools for AI agents, and a Web UI — all from a single decorator with zero boilerplate.</textarea>
+                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    <button class="btn" id="l1-btn" onclick="runSummarize()">▶ Call summarize()</button>
+                    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8125rem;color:var(--muted);">
+                        max_words <input id="l1-max" type="number" value="8" min="1" max="50"
+                            style="width:4rem;padding:0.25rem 0.5rem;border:1px solid var(--border);border-radius:0.375rem;font-size:0.875rem;">
+                    </label>
+                </div>
+                <div id="l1-result"></div>
+            </div>
+        </div>
+    </section>
+
+    <hr>
+
+    <!-- ── SSE Streaming ─────────────────────────────────────────────────── -->
+    <section class="section">
+        <div class="section-header">
+            <div class="section-title">
+                📡 SSE Streaming &nbsp;<code>RefractClient.stream()</code>
+            </div>
+            <p class="section-desc">
+                For long-running tasks. The backend yields <code>format_sse("token", ...)</code>
+                events; the client consumes them as an async generator.
+            </p>
+        </div>
+
+        <div class="snippet"><span class="kw">for await</span> (<span class="kw">const</span> { event, data } <span class="kw">of</span> api.<span class="fn">stream</span>(<span class="str">'stream_words'</span>, { text })) {
+  <span class="kw">if</span> (event === <span class="str">'token'</span>)    show(data.chunk);
+  <span class="kw">if</span> (event === <span class="str">'complete'</span>) done(data.message);
+}</div>
+
+        <div class="card">
+            <div id="sse-form">
+                <label for="sse-text" style="font-size:0.8125rem;font-weight:600;color:var(--muted);">Text to stream word by word</label>
+                <input type="text" id="sse-text" value="The quick brown fox jumps over the lazy dog">
+                <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+                    <button class="btn" id="sse-btn" onclick="runStream()">▶ Stream words</button>
+                    <span id="sse-status" style="font-size:0.8125rem;color:var(--muted);"></span>
+                </div>
+                <div id="sse-tokens"></div>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<!-- ── Layer 2 custom element definition ─────────────────────────────────── -->
+<script type="module">
+    import { html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+    import { AutoFunctionController } from '/elements/controller.js';
+
+    class BmiCalculator extends AutoFunctionController {
+        static styles = css`
+            :host { display: block; font-family: system-ui, sans-serif; }
+            .wrap { display: flex; flex-direction: column; gap: 0.75rem; }
+            .row  { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+            .field { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 8rem; }
+            label { font-size: 0.75rem; font-weight: 600; color: #64748b; }
+            input {
+                padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 0.375rem;
+                font-size: 0.875rem; background: #f8fafc;
+            }
+            input:focus { outline: none; border-color: #6366f1; }
+            button {
+                padding: 0.5rem 1rem; background: linear-gradient(to right, #4f46e5, #7c3aed);
+                color: white; border: none; border-radius: 0.375rem;
+                font-size: 0.875rem; font-weight: 500; cursor: pointer;
+                align-self: flex-start;
+            }
+            button:disabled { opacity: 0.5; }
+            .result-box {
+                display: flex; align-items: center; gap: 1rem;
+                padding: 0.75rem 1rem; border-radius: 0.5rem;
+                border: 1px solid #e2e8f0; background: #f8fafc;
+            }
+            .bmi-value { font-size: 2rem; font-weight: 700; color: #0f172a; }
+            .bmi-cat   { font-size: 0.875rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 9999px; }
+            .cat-normal      { background: #dcfce7; color: #15803d; }
+            .cat-underweight { background: #dbeafe; color: #1d4ed8; }
+            .cat-overweight  { background: #fef3c7; color: #92400e; }
+            .cat-obese       { background: #fee2e2; color: #991b1b; }
+            .err { font-size: 0.8125rem; color: #991b1b; }
+        `;
+
+        render() {
+            const bmi = this.result?.bmi;
+            const cat = this.result?.category || '';
+            const catClass = `cat-${cat.toLowerCase()}`;
+
+            return html`
+                <div class="wrap">
+                    <div class="row">
+                        <div class="field">
+                            <label>Weight (kg)</label>
+                            <input type="number" step="0.1" placeholder="70"
+                                @input=${e => this.setParam('weight_kg', e.target.value)}>
+                        </div>
+                        <div class="field">
+                            <label>Height (m)</label>
+                            <input type="number" step="0.01" placeholder="1.75"
+                                @input=${e => this.setParam('height_m', e.target.value)}>
+                        </div>
+                    </div>
+                    ${this._errorMessage ? html`<span class="err">${this._errorMessage}</span>` : ''}
+                    <button ?disabled=${this._isExecuting} @click=${this.execute}>
+                        ${this._isExecuting ? 'Calculating…' : '⚡ Calculate BMI'}
+                    </button>
+                    ${bmi ? html`
+                        <div class="result-box">
+                            <span class="bmi-value">${bmi}</span>
+                            <span class="bmi-cat ${catClass}">${cat}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    }
+
+    if (!customElements.get('bmi-calculator')) {
+        customElements.define('bmi-calculator', BmiCalculator);
+    }
+</script>
+
+<!-- ── Layer 1: vanilla JS ────────────────────────────────────────────────── -->
+<script type="module">
+    import { RefractClient } from '/elements/client.js';
+
+    const httpClient = new RefractClient();
+
+    window.runSummarize = async () => {
+        const text = document.getElementById('l1-text').value.trim();
+        const max_words = parseInt(document.getElementById('l1-max').value) || 8;
+        const btn = document.getElementById('l1-btn');
+        const out = document.getElementById('l1-result');
+
+        if (!text) return;
+        btn.disabled = true;
+        btn.textContent = 'Calling…';
+        out.style.display = 'none';
+        out.className = '';
+
+        try {
+            const result = await httpClient.call('summarize', { text, max_words });
+            out.textContent = JSON.stringify(result, null, 2);
+            out.className = '';
+            out.style.display = 'block';
+        } catch (e) {
+            out.textContent = `Error: ${e.message}`;
+            out.className = 'error';
+            out.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '▶ Call summarize()';
+        }
+    };
+</script>
+
+<!-- ── SSE streaming ───────────────────────────────────────────────────────── -->
+<script type="module">
+    import { RefractClient } from '/elements/client.js';
+
+    const api = new RefractClient();
+    let abortCtrl = null;
+
+    window.runStream = async () => {
+        const text = document.getElementById('sse-text').value.trim();
+        const btn  = document.getElementById('sse-btn');
+        const tokens = document.getElementById('sse-tokens');
+        const status = document.getElementById('sse-status');
+
+        if (!text) return;
+
+        // Cancel any in-progress stream
+        if (abortCtrl) { abortCtrl.abort(); }
+        abortCtrl = new AbortController();
+
+        tokens.innerHTML = '';
+        btn.disabled = true;
+        btn.textContent = '⏹ Streaming…';
+        status.textContent = '';
+
+        try {
+            for await (const { event, data } of api.stream('stream_words', { text, delay: 0.12 }, null, { signal: abortCtrl.signal })) {
+                if (event === 'token') {
+                    const span = document.createElement('span');
+                    span.className = 'token';
+                    span.textContent = data.chunk;
+                    tokens.appendChild(span);
+                }
+                if (event === 'complete') {
+                    status.textContent = `✓ ${data.message}`;
+                }
+            }
+        } catch (e) {
+            if (e.name !== 'AbortError') {
+                status.textContent = `Error: ${e.message}`;
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '▶ Stream words';
+        }
+    };
+</script>
+
+<!-- ── Auto-function-element (Layer 3) loaded explicitly ─────────────────── -->
+<script type="module" src="/elements/element.js"></script>
+
+</body>
+</html>
