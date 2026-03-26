@@ -278,7 +278,13 @@ class Registry:
     registrations that were decorated before instantiation.
     """
 
-    def __init__(self, name: str, discover: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        discover: list[str] | None = None,
+        views: dict[str, str] | None = None,
+        static_dirs: list[tuple[str, str]] | None = None,
+    ) -> None:
         """Initialise a Registry instance.
 
         Args:
@@ -286,8 +292,17 @@ class Registry:
             discover: List of package paths to scan for ``@register_function``
                 decorators (e.g. ``["my_project.core"]``). When provided,
                 ``_discover()`` is called immediately during ``__init__``.
+            views: Mapping of URL path → HTML file path for custom page routes.
+                When provided, replaces the default dashboard/functions pages.
+                Example: ``{"/": "templates/index.html", "/about": "templates/about.html"}``
+            static_dirs: List of ``(mount_path, directory)`` tuples for serving
+                additional static files. The ``/refract/`` namespace is reserved
+                for the SDK JS files and must not be used here.
+                Example: ``[("/static", "my_app/static")]``
         """
         self.name = name
+        self.views = views
+        self.static_dirs = static_dirs
         self._registry: list[FunctionInfo] = []
         self._stream_registry: dict[str, Callable] = {}
         self._custom_commands: list[tuple[str, Callable, dict]] = []

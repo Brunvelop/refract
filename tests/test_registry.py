@@ -1087,3 +1087,41 @@ class TestThreadSafety:
         assert app.function_count() == 5
         with _pending_lock:
             assert len(_pending_registrations) == 0
+
+
+class TestRegistryViewsAndStaticDirs:
+    """Tests for the views and static_dirs configuration on Registry and Refract."""
+
+    def test_registry_views_default_none(self):
+        """Registry.views is None when not provided."""
+        from refract.registry import Registry
+        app = Registry("views-default")
+        assert app.views is None
+
+    def test_registry_static_dirs_default_none(self):
+        """Registry.static_dirs is None when not provided."""
+        from refract.registry import Registry
+        app = Registry("static-default")
+        assert app.static_dirs is None
+
+    def test_registry_accepts_views(self):
+        """Registry stores the views mapping passed at construction time."""
+        from refract.registry import Registry
+        views = {"/": "templates/index.html", "/about": "templates/about.html"}
+        app = Registry("views-test", views=views)
+        assert app.views == views
+
+    def test_registry_accepts_static_dirs(self):
+        """Registry stores the static_dirs list passed at construction time."""
+        from refract.registry import Registry
+        static_dirs = [("/static", "my_app/static"), ("/assets", "my_app/assets")]
+        app = Registry("static-test", static_dirs=static_dirs)
+        assert app.static_dirs == static_dirs
+
+    def test_refract_passes_views_and_static_dirs(self):
+        """Refract forwards views and static_dirs to Registry.__init__."""
+        views = {"/dashboard": "templates/dashboard.html"}
+        static_dirs = [("/files", "my_app/files")]
+        app = Refract("refract-passthrough", views=views, static_dirs=static_dirs)
+        assert app.views == views
+        assert app.static_dirs == static_dirs

@@ -43,8 +43,14 @@ class Refract(Registry):
         mcp_only_app = app.mcp_only() # MCP endpoints only
     """
 
-    def __init__(self, name: str, discover: list[str] | None = None) -> None:
-        super().__init__(name, discover)
+    def __init__(
+        self,
+        name: str,
+        discover: list[str] | None = None,
+        views: dict[str, str] | None = None,
+        static_dirs: list[tuple[str, str]] | None = None,
+    ) -> None:
+        super().__init__(name, discover, views=views, static_dirs=static_dirs)
         self._cli_cached = None
 
     # ------------------------------------------------------------------
