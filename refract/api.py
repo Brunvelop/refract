@@ -118,8 +118,22 @@ def create_api_app(registry: Registry) -> FastAPI:
     router = create_router(registry)
     app.include_router(router)
 
-    # App-mode exclusives: HTML pages + static files
-    _register_html_pages(app)
+    # App-mode exclusives: HTML pages (custom or default) + static files
+    if registry.views:
+        _register_custom_views(app, registry.views)
+    else:
+        _register_html_pages(app)
+
+    # User-supplied static directories
+    if registry.static_dirs:
+        for mount_path, directory in registry.static_dirs:
+            app.mount(
+                mount_path,
+                StaticFiles(directory=directory),
+                name=f"static-{mount_path.strip('/')}",
+            )
+
+    # ALWAYS: Refract SDK JS at /refract/
     _register_static_files(app)
 
     return app
@@ -234,6 +248,31 @@ def _register_html_pages(app: FastAPI) -> None:
     @app.get("/functions")
     async def functions_ui():
         return FileResponse(os.path.join(views_dir, "dashboard.html"))
+
+
+def _register_custom_views(app: FastAPI, views: dict[str, str]) -> None:
+    """Register custom HTML page routes from a ``views`` mapping.
+
+    Replaces the default ``_register_html_pages`` behaviour when the user
+    supplies ``views`` at ``Registry`` / ``Refract`` creation time.
+
+    Note:
+        Paths in *views* are resolved relative to the process CWD.  If the
+        file does not exist at request time, ``FileResponse`` will return a
+        500 error — consistent with the behaviour of ``_register_html_pages``.
+
+    Args:
+        app: FastAPI application to register routes on.
+        views: Mapping of URL route path → HTML file path.
+            Example: ``{"/": "templates/index.html", "/about": "templates/about.html"}``
+    """
+    for route_path, file_path in views.items():
+        def _make_handler(fp: str):
+            async def handler():
+                return FileResponse(fp)
+            return handler
+
+        app.add_api_route(route_path, _make_handler(file_path), methods=["GET"])
 
 
 def _register_static_files(app: FastAPI) -> None:

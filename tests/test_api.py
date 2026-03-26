@@ -22,10 +22,12 @@ from refract.api import (
     _execute_function_async,
     create_handler,
     _register_static_files,
+    _register_custom_views,
     create_router,
     create_api_app,
     _add_function_endpoints,
 )
+from refract.mcp import create_mcp_app
 from refract.models import FunctionInfo, ParamSchema
 from refract import Refract
 from tests.conftest import TestOutput
@@ -1227,3 +1229,107 @@ class TestAsyncFunctionIntegration:
 
         response = client.get("/async_strict")  # Missing x
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Tests: custom views and static_dirs (Commit 3)
+# ---------------------------------------------------------------------------
+
+class TestCustomViewsAndStaticDirs:
+    """Tests for custom views and static_dirs support in create_api_app."""
+
+    def test_api_app_with_custom_views(self):
+        """Custom HTML files are served at the configured routes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            index_path = os.path.join(tmpdir, "index.html")
+            about_path = os.path.join(tmpdir, "about.html")
+            with open(index_path, "w") as f:
+                f.write("<html><body>Home</body></html>")
+            with open(about_path, "w") as f:
+                f.write("<html><body>About</body></html>")
+
+            stub = Refract("custom-views-test", views={
+                "/": index_path,
+                "/about": about_path,
+            })
+            app = create_api_app(stub)
+            client = TestClient(app)
+
+            resp = client.get("/")
+            assert resp.status_code == 200
+            assert b"Home" in resp.content
+
+            resp = client.get("/about")
+            assert resp.status_code == 200
+            assert b"About" in resp.content
+
+    def test_api_app_with_custom_views_no_default_routes(self):
+        """When custom views are set, the default /functions route is NOT registered."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            index_path = os.path.join(tmpdir, "index.html")
+            with open(index_path, "w") as f:
+                f.write("<html><body>Custom Home</body></html>")
+
+            stub = Refract("no-defaults-test", views={"/": index_path})
+            app = create_api_app(stub)
+
+            route_paths = {r.path for r in app.routes if hasattr(r, "path")}
+            assert "/functions" not in route_paths
+
+    def test_api_app_default_behavior_unchanged(self):
+        """Without views/static_dirs, default / and /functions routes are present."""
+        stub = _make_refract_stub()
+        app = create_api_app(stub)
+
+        route_paths = {r.path for r in app.routes if hasattr(r, "path")}
+        assert "/" in route_paths
+        assert "/functions" in route_paths
+
+    def test_api_app_with_custom_static_dirs(self):
+        """User-supplied static directories are mounted at the specified paths."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            static_file = os.path.join(tmpdir, "style.css")
+            with open(static_file, "w") as f:
+                f.write("body { color: red; }")
+
+            stub = Refract("static-dirs-test", static_dirs=[("/static", tmpdir)])
+            app = create_api_app(stub)
+            client = TestClient(app)
+
+            resp = client.get("/static/style.css")
+            assert resp.status_code == 200
+            assert b"color: red" in resp.content
+
+    def test_api_app_refract_sdk_always_mounted(self):
+        """The /refract SDK mount is present regardless of static_dirs or views config."""
+        # Without any custom config
+        stub_default = _make_refract_stub()
+        app_default = create_api_app(stub_default)
+        mount_paths_default = {
+            r.path for r in app_default.routes if hasattr(r, "path")
+        }
+        assert "/refract" in mount_paths_default
+
+        # With custom static_dirs
+        with tempfile.TemporaryDirectory() as tmpdir:
+            stub_custom = Refract("sdk-always-test", static_dirs=[("/assets", tmpdir)])
+            app_custom = create_api_app(stub_custom)
+            mount_paths_custom = {
+                r.path for r in app_custom.routes if hasattr(r, "path")
+            }
+            assert "/refract" in mount_paths_custom
+
+    def test_mcp_app_inherits_custom_views(self):
+        """create_mcp_app delegates to create_api_app, so custom views are honoured."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            index_path = os.path.join(tmpdir, "mcp_index.html")
+            with open(index_path, "w") as f:
+                f.write("<html><body>MCP Custom</body></html>")
+
+            stub = Refract("mcp-views-test", views={"/": index_path})
+            app = create_mcp_app(stub)
+            client = TestClient(app)
+
+            resp = client.get("/")
+            assert resp.status_code == 200
+            assert b"MCP Custom" in resp.content
