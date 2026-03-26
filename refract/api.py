@@ -239,17 +239,17 @@ def _register_html_pages(app: FastAPI) -> None:
 def _register_static_files(app: FastAPI) -> None:
     """Mount static files directories for web UI.
 
-    Mounts ``refract/web/`` at ``/elements``, so JS files are served at:
-        - ``/elements/client.js``
-        - ``/elements/controller.js``
-        - ``/elements/element.js``
-        - ``/elements/generator.js``
+    Mounts ``refract/web/`` at ``/refract``, so JS files are served at:
+        - ``/refract/client.js``
+        - ``/refract/controller.js``
+        - ``/refract/element.js``
+        - ``/refract/generator.js``
     """
     current_dir = os.path.dirname(__file__)
     web_dir = os.path.join(current_dir, "web")
 
     if os.path.exists(web_dir):
-        app.mount("/elements", StaticFiles(directory=web_dir), name="elements")
+        app.mount("/refract", StaticFiles(directory=web_dir), name="refract-sdk")
 
 
 # ---------------------------------------------------------------------------

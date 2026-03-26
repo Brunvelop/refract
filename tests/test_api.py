@@ -919,12 +919,12 @@ class TestRegisterStaticFiles:
     """Tests for _register_static_files."""
 
     def test_mounts_elements_if_exists(self):
-        """When elements subdir exists, it gets mounted at /elements."""
+        """When web dir exists, it gets mounted at /refract."""
         with tempfile.TemporaryDirectory() as base_dir:
             # Simulate refract package dir
             refract_pkg_dir = os.path.join(base_dir, "refract")
             os.makedirs(refract_pkg_dir)
-            os.makedirs(os.path.join(refract_pkg_dir, "web", "elements"))
+            os.makedirs(os.path.join(refract_pkg_dir, "web"))
 
             mock_app = Mock()
             with patch('refract.api.os.path.dirname', return_value=refract_pkg_dir):
@@ -932,7 +932,7 @@ class TestRegisterStaticFiles:
 
             assert mock_app.mount.call_count == 1
             route = mock_app.mount.call_args[0][0]
-            assert route == "/elements"
+            assert route == "/refract"
 
     def test_not_mounted_when_no_directories_exist(self):
         """When web/elements doesn't exist, app.mount is never called."""
