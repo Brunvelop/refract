@@ -63,7 +63,7 @@ def create_cli(registry: Registry) -> click.Group:
     Includes:
         - ``list``      — lists functions in this instance's registry.
         - ``serve-api`` — starts FastAPI server via ``create_api_app(registry)``.
-        - ``serve-mcp`` — starts API+MCP server via ``create_mcp_app(registry)``.
+        - ``serve-mcp`` — starts MCP-only server via ``create_mcp_only_app(registry)``.
         - ``serve``     — alias for ``serve-mcp`` (recommended default).
         - Dynamic function commands for all ``"cli"``-interface functions.
         - Custom commands registered via ``@registry.command()``.
