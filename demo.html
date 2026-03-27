@@ -152,9 +152,6 @@
         /* ── Divider ── */
         hr { border: none; border-top: 1px solid var(--border); margin: 0.25rem 0 1.5rem; }
     </style>
-
-    <!-- Zero-config auto-generator — registers <auto-*> elements for every function -->
-    <script type="module" src="/refract/generator.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -171,88 +168,6 @@
         </nav>
     </header>
 
-
-    <!-- ── Layer 0: Zero-config ─────────────────────────────────────────── -->
-    <section class="section">
-        <div class="section-header">
-            <div class="section-title">
-                ✨ Zero-config &nbsp;<code>generator.js</code>
-            </div>
-            <p class="section-desc">
-                Load one script — <code>&lt;auto-{funcName}&gt;</code> elements are registered automatically.
-                No configuration, no code.
-            </p>
-        </div>
-
-        <div class="snippet"><span class="cmt">&lt;!-- 1. Load the generator (once, in &lt;head&gt;) --&gt;</span>
-<span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/refract/generator.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
-
-<span class="cmt">&lt;!-- 2. Drop any &lt;auto-{funcName}&gt; anywhere in the page --&gt;</span>
-<span class="tag">&lt;auto-add&gt;&lt;/auto-add&gt;</span>
-<span class="tag">&lt;auto-search&gt;&lt;/auto-search&gt;</span></div>
-
-        <div class="grid-2">
-            <auto-add></auto-add>
-            <auto-search></auto-search>
-        </div>
-    </section>
-
-    <hr>
-
-    <!-- ── Layer 3: AutoFunctionElement ─────────────────────────────────── -->
-    <section class="section">
-        <div class="section-header">
-            <div class="section-title">
-                🃏 Layer 3 &nbsp;<code>AutoFunctionElement</code>
-            </div>
-            <p class="section-desc">
-                Ready-to-use card UI. Specify <code>func-name</code> — form fields are generated from the schema.
-            </p>
-        </div>
-
-        <div class="snippet"><span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/refract/element.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
-
-<span class="tag">&lt;auto-function-element</span> func-name=<span class="str">"greet"</span><span class="tag">&gt;&lt;/auto-function-element&gt;</span>
-<span class="tag">&lt;auto-function-element</span> func-name=<span class="str">"bmi"</span><span class="tag">&gt;&lt;/auto-function-element&gt;</span></div>
-
-        <div class="grid-2">
-            <auto-function-element func-name="greet"></auto-function-element>
-            <auto-function-element func-name="bmi"></auto-function-element>
-        </div>
-    </section>
-
-    <hr>
-
-    <!-- ── Layer 2: AutoFunctionController ──────────────────────────────── -->
-    <section class="section">
-        <div class="section-header">
-            <div class="section-title">
-                🎮 Layer 2 &nbsp;<code>AutoFunctionController</code>
-            </div>
-            <p class="section-desc">
-                Extend the controller to build custom UIs. State, validation, and API calls are handled for you.
-                Only <code>render()</code> is yours.
-            </p>
-        </div>
-
-        <div class="snippet"><span class="kw">import</span> { AutoFunctionController } <span class="kw">from</span> <span class="str">'/refract/controller.js'</span>;
-
-<span class="kw">class</span> <span class="fn">BmiCalculator</span> <span class="kw">extends</span> AutoFunctionController {
-  <span class="fn">render</span>() {
-    <span class="kw">const</span> bmi = <span class="kw">this</span>.result?.bmi;
-    <span class="kw">return</span> html`
-      &lt;input @change=${<span class="fn">e</span> =&gt; <span class="kw">this</span>.<span class="fn">setParam</span>(<span class="str">'weight_kg'</span>, e.target.value)} /&gt;
-      &lt;button @click=${<span class="kw">this</span>.execute}&gt;Calculate&lt;/button&gt;
-      ${bmi ? html`&lt;big&gt;<span class="str">${bmi}</span>&lt;/big&gt; — ${<span class="kw">this</span>.result.category}` : <span class="str">''</span>}
-    `;
-  }
-}
-customElements.<span class="fn">define</span>(<span class="str">'bmi-calculator'</span>, BmiCalculator);</div>
-
-        <bmi-calculator func-name="bmi"></bmi-calculator>
-    </section>
-
-    <hr>
 
     <!-- ── Layer 1: RefractClient ─────────────────────────────────────────── -->
     <section class="section">
@@ -297,12 +212,15 @@ console.<span class="fn">log</span>(result); <span class="cmt">// { summary: "..
                 📡 SSE Streaming &nbsp;<code>RefractClient.stream()</code>
             </div>
             <p class="section-desc">
-                For long-running tasks. The backend yields <code>format_sse("token", ...)</code>
+                Extension of Layer 1. For long-running tasks. The backend yields <code>format_sse("token", ...)</code>
                 events; the client consumes them as an async generator.
             </p>
         </div>
 
-        <div class="snippet"><span class="kw">for await</span> (<span class="kw">const</span> { event, data } <span class="kw">of</span> api.<span class="fn">stream</span>(<span class="str">'stream_words'</span>, { text })) {
+        <div class="snippet"><span class="kw">import</span> { RefractClient } <span class="kw">from</span> <span class="str">'/refract/client.js'</span>;
+
+<span class="kw">const</span> api = <span class="kw">new</span> <span class="fn">RefractClient</span>();
+<span class="kw">for await</span> (<span class="kw">const</span> { event, data } <span class="kw">of</span> api.<span class="fn">stream</span>(<span class="str">'stream_words'</span>, { text })) {
   <span class="kw">if</span> (event === <span class="str">'token'</span>)    show(data.chunk);
   <span class="kw">if</span> (event === <span class="str">'complete'</span>) done(data.message);
 }</div>
@@ -320,9 +238,92 @@ console.<span class="fn">log</span>(result); <span class="cmt">// { summary: "..
         </div>
     </section>
 
+    <hr>
+
+    <!-- ── Layer 2: AutoFunctionController ──────────────────────────────── -->
+    <section class="section">
+        <div class="section-header">
+            <div class="section-title">
+                🎮 Layer 2 &nbsp;<code>AutoFunctionController</code>
+            </div>
+            <p class="section-desc">
+                Add Lit. Extend the controller to build custom UIs — state, validation, and API calls are handled for you.
+                Only <code>render()</code> is yours.
+            </p>
+        </div>
+
+        <div class="snippet"><span class="kw">import</span> { AutoFunctionController } <span class="kw">from</span> <span class="str">'/refract/controller.js'</span>;
+
+<span class="kw">class</span> <span class="fn">BmiCalculator</span> <span class="kw">extends</span> AutoFunctionController {
+  <span class="fn">render</span>() {
+    <span class="kw">const</span> bmi = <span class="kw">this</span>.result?.bmi;
+    <span class="kw">return</span> html`
+      &lt;input @change=${<span class="fn">e</span> =&gt; <span class="kw">this</span>.<span class="fn">setParam</span>(<span class="str">'weight_kg'</span>, e.target.value)} /&gt;
+      &lt;button @click=${<span class="kw">this</span>.execute}&gt;Calculate&lt;/button&gt;
+      ${bmi ? html`&lt;big&gt;<span class="str">${bmi}</span>&lt;/big&gt; — ${<span class="kw">this</span>.result.category}` : <span class="str">''</span>}
+    `;
+  }
+}
+customElements.<span class="fn">define</span>(<span class="str">'bmi-calculator'</span>, BmiCalculator);</div>
+
+        <bmi-calculator func-name="bmi"></bmi-calculator>
+    </section>
+
+    <hr>
+
+    <!-- ── Layer 3: AutoFunctionElement ─────────────────────────────────── -->
+    <section class="section">
+        <div class="section-header">
+            <div class="section-title">
+                🃏 Layer 3 &nbsp;<code>AutoFunctionElement</code>
+            </div>
+            <p class="section-desc">
+                Ready-to-use card UI. No <code>render()</code> to write — just specify <code>func-name</code>
+                and form fields are generated automatically from the schema.
+            </p>
+        </div>
+
+        <div class="snippet"><span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/refract/element.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+
+<span class="tag">&lt;auto-function-element</span> func-name=<span class="str">"greet"</span><span class="tag">&gt;&lt;/auto-function-element&gt;</span>
+<span class="tag">&lt;auto-function-element</span> func-name=<span class="str">"bmi"</span><span class="tag">&gt;&lt;/auto-function-element&gt;</span></div>
+
+        <div class="grid-2">
+            <auto-function-element func-name="greet"></auto-function-element>
+            <auto-function-element func-name="bmi"></auto-function-element>
+        </div>
+    </section>
+
+    <hr>
+
+    <!-- ── Zero-config: AutoElementGenerator ────────────────────────────── -->
+    <section class="section">
+        <div class="section-header">
+            <div class="section-title">
+                ✨ Zero-config &nbsp;<code>generator.js</code>
+            </div>
+            <p class="section-desc">
+                Load one script — <code>&lt;auto-{funcName}&gt;</code> elements are registered automatically
+                for every function. No configuration, no code, no <code>func-name</code> attribute.
+            </p>
+        </div>
+
+        <div class="snippet"><span class="cmt">&lt;!-- 1. Load the generator (once, in &lt;head&gt;) --&gt;</span>
+<span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/refract/generator.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+
+<span class="cmt">&lt;!-- 2. Drop any &lt;auto-{funcName}&gt; anywhere in the page --&gt;</span>
+<span class="tag">&lt;auto-add&gt;&lt;/auto-add&gt;</span>
+<span class="tag">&lt;auto-search&gt;&lt;/auto-search&gt;</span></div>
+
+        <div class="grid-2">
+            <auto-add></auto-add>
+            <auto-search></auto-search>
+        </div>
+    </section>
+
 </div>
 
-<!-- ── Layer 2 custom element definition ─────────────────────────────────── -->
+<!-- ── Layer 2: BmiCalculator custom element definition ──────────────────── -->
 <script type="module">
     import { html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
     import { AutoFunctionController } from '/refract/controller.js';
@@ -480,8 +481,11 @@ console.<span class="fn">log</span>(result); <span class="cmt">// { summary: "..
     };
 </script>
 
-<!-- ── Auto-function-element (Layer 3) loaded explicitly ─────────────────── -->
+<!-- ── Layer 3: AutoFunctionElement ──────────────────────────────────────── -->
 <script type="module" src="/refract/element.js"></script>
+
+<!-- ── Zero-config: AutoElementGenerator ─────────────────────────────────── -->
+<script type="module" src="/refract/generator.js"></script>
 
 </body>
 </html>

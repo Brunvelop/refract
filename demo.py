@@ -18,11 +18,9 @@ Usage:
 import asyncio
 import json
 import os
+from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from refract import Refract, register_function
@@ -139,43 +137,60 @@ def stream_words(text: str, delay: float = 0.15) -> StreamResult:
 
 
 # ── App ──────────────────────────────────────────────────────────────────────
-# Level 3: bring-your-own FastAPI.
-# app.router() gives us only the function endpoints (no HTML pages).
-# We control all routes:
+# Level 1: Refract controls everything.
+# Pass views and static_dirs — app.api() mounts them automatically:
 #   /             → demo.html  (frontend layers demo)
 #   /dashboard    → dashboard.html  (refract auto-UI)
-#   /refract/*    → refract SDK (web components + JS client)
+#   /refract/*    → refract SDK (always, auto-mounted by app.api())
 
-app = Refract("demo")
+_root = Path(__file__).parent
+_web_dir = _root / "refract" / "web"
 
-_root = os.path.dirname(os.path.abspath(__file__))
-_web_dir = os.path.join(_root, "refract", "web")
-_dashboard_html = os.path.join(_web_dir, "views", "dashboard.html")
-_demo_html = os.path.join(_root, "demo.html")
-
-fastapi_app = FastAPI(title="Refract Demo", description="All features, one file.")
-fastapi_app.include_router(app.router())
-fastapi_app.mount("/refract", StaticFiles(directory=_web_dir), name="refract-sdk")
-
-
-@fastapi_app.get("/")
-async def demo_page():
-    """Frontend layers demo — zero-config, Layer 3, Layer 2, Layer 1, SSE."""
-    return FileResponse(_demo_html)
+app = Refract(
+    "demo",
+    views={
+        "/": str(_root / "demo.html"),
+        "/dashboard": str(_web_dir / "views" / "dashboard.html"),
+    },
+)
 
 
-@fastapi_app.get("/dashboard")
-async def dashboard():
-    """Refract auto-generated UI — registry overview + interactive cards."""
-    return FileResponse(_dashboard_html)
-
-
+# Level 2: custom CLI command (works alongside Level 1 — just add @app.command())
 @app.command()
 def open_demo():
     """Open the frontend demo page in the browser."""
     import webbrowser
     webbrowser.open("http://localhost:8000")
     print("→ http://localhost:8000")
+
+
+# Level 1 — everything mounted automatically by app.api():
+#   - Dynamic function endpoints
+#   - /functions/details, /health
+#   - Custom views (/ and /dashboard)
+#   - /refract/* SDK JS files
+fastapi_app = app.api()
+
+
+# --- Level 3 alternative (BYO FastAPI) ---
+# Use this instead of app.api() when you need full FastAPI control:
+# middleware, lifespan events, custom error handlers, extra mounts, etc.
+#
+# from fastapi import FastAPI
+# from fastapi.responses import FileResponse
+# from fastapi.staticfiles import StaticFiles
+#
+# fastapi_app = FastAPI(title="Refract Demo", description="All features, one file.")
+# fastapi_app.include_router(app.router())          # function endpoints only
+# fastapi_app.mount("/refract", StaticFiles(directory=str(_web_dir)), name="refract-sdk")
+#
+# @fastapi_app.get("/")
+# async def demo_page():
+#     return FileResponse(str(_root / "demo.html"))
+#
+# @fastapi_app.get("/dashboard")
+# async def dashboard():
+#     return FileResponse(str(_web_dir / "views" / "dashboard.html"))
 
 
 if __name__ == "__main__":
