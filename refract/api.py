@@ -341,6 +341,8 @@ def _handle_execution_error(
     Raises:
         HTTPException: Always — 400 for parameter/type errors, 500 for all others.
     """
+    if isinstance(error, HTTPException):
+        raise error  # Pass-through: let FastAPI handle it as-is
     if isinstance(error, ValueError):
         logger.warning(f"{method} {func_info.name} param error: {error}")
         raise HTTPException(status_code=400, detail=f"Parameter error: {error}")

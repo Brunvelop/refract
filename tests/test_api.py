@@ -646,6 +646,63 @@ class TestExecuteFunctionWithParams:
         assert exc_info.value.status_code == 500
         assert exc_info.value.detail == "Internal server error"
 
+    def test_execute_function_http_exception_passthrough(self):
+        """HTTPException raised by a function is re-raised as-is (not wrapped as 500)."""
+        def not_found_func(x: int) -> TestOutput:
+            raise HTTPException(status_code=404, detail="Item not found")
+
+        func_info = FunctionInfo(
+            name="not_found_func",
+            func=not_found_func,
+            description="Not found",
+            params=[ParamSchema(name="x", type=int, required=True, description="x")],
+            return_type=TestOutput,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            execute_function_with_params(func_info, {"x": 1}, "GET")
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "Item not found"
+
+    def test_execute_function_http_exception_409_passthrough(self):
+        """HTTPException(409) raised by a function is passed through unchanged."""
+        def conflict_func(x: int) -> TestOutput:
+            raise HTTPException(status_code=409, detail="Invalid state transition")
+
+        func_info = FunctionInfo(
+            name="conflict_func",
+            func=conflict_func,
+            description="Conflict",
+            params=[ParamSchema(name="x", type=int, required=True, description="x")],
+            return_type=TestOutput,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            execute_function_with_params(func_info, {"x": 1}, "POST")
+
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail == "Invalid state transition"
+
+    def test_execute_function_http_exception_422_passthrough(self):
+        """HTTPException(422) for semantic validation is passed through unchanged."""
+        def semantic_func(x: int) -> TestOutput:
+            raise HTTPException(status_code=422, detail="Value out of allowed range")
+
+        func_info = FunctionInfo(
+            name="semantic_func",
+            func=semantic_func,
+            description="Semantic validation",
+            params=[ParamSchema(name="x", type=int, required=True, description="x")],
+            return_type=TestOutput,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            execute_function_with_params(func_info, {"x": 1}, "POST")
+
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail == "Value out of allowed range"
+
     @patch('refract.api.logger')
     def test_execute_function_error_logging(self, mock_logger):
         def error_func() -> str:
