@@ -154,7 +154,7 @@
     </style>
 
     <!-- Zero-config auto-generator — registers <auto-*> elements for every function -->
-    <script type="module" src="/elements/generator.js"></script>
+    <script type="module" src="/refract/generator.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -185,7 +185,7 @@
         </div>
 
         <div class="snippet"><span class="cmt">&lt;!-- 1. Load the generator (once, in &lt;head&gt;) --&gt;</span>
-<span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/elements/generator.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+<span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/refract/generator.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
 
 <span class="cmt">&lt;!-- 2. Drop any &lt;auto-{funcName}&gt; anywhere in the page --&gt;</span>
 <span class="tag">&lt;auto-add&gt;&lt;/auto-add&gt;</span>
@@ -210,7 +210,7 @@
             </p>
         </div>
 
-        <div class="snippet"><span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/elements/element.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+        <div class="snippet"><span class="tag">&lt;script</span> type=<span class="str">"module"</span> src=<span class="str">"/refract/element.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
 
 <span class="tag">&lt;auto-function-element</span> func-name=<span class="str">"greet"</span><span class="tag">&gt;&lt;/auto-function-element&gt;</span>
 <span class="tag">&lt;auto-function-element</span> func-name=<span class="str">"bmi"</span><span class="tag">&gt;&lt;/auto-function-element&gt;</span></div>
@@ -235,7 +235,7 @@
             </p>
         </div>
 
-        <div class="snippet"><span class="kw">import</span> { AutoFunctionController } <span class="kw">from</span> <span class="str">'/elements/controller.js'</span>;
+        <div class="snippet"><span class="kw">import</span> { AutoFunctionController } <span class="kw">from</span> <span class="str">'/refract/controller.js'</span>;
 
 <span class="kw">class</span> <span class="fn">BmiCalculator</span> <span class="kw">extends</span> AutoFunctionController {
   <span class="fn">render</span>() {
@@ -266,7 +266,7 @@ customElements.<span class="fn">define</span>(<span class="str">'bmi-calculator'
             </p>
         </div>
 
-        <div class="snippet"><span class="kw">import</span> { RefractClient } <span class="kw">from</span> <span class="str">'/elements/client.js'</span>;
+        <div class="snippet"><span class="kw">import</span> { RefractClient } <span class="kw">from</span> <span class="str">'/refract/client.js'</span>;
 
 <span class="kw">const</span> api = <span class="kw">new</span> <span class="fn">RefractClient</span>();
 <span class="kw">const</span> result = <span class="kw">await</span> api.<span class="fn">call</span>(<span class="str">'summarize'</span>, { text: <span class="str">'...'</span>, max_words: <span class="str">5</span> });
@@ -325,7 +325,7 @@ console.<span class="fn">log</span>(result); <span class="cmt">// { summary: "..
 <!-- ── Layer 2 custom element definition ─────────────────────────────────── -->
 <script type="module">
     import { html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
-    import { AutoFunctionController } from '/elements/controller.js';
+    import { AutoFunctionController } from '/refract/controller.js';
 
     class BmiCalculator extends AutoFunctionController {
         static styles = css`
@@ -401,7 +401,7 @@ console.<span class="fn">log</span>(result); <span class="cmt">// { summary: "..
 
 <!-- ── Layer 1: vanilla JS ────────────────────────────────────────────────── -->
 <script type="module">
-    import { RefractClient } from '/elements/client.js';
+    import { RefractClient } from '/refract/client.js';
 
     const httpClient = new RefractClient();
 
@@ -435,7 +435,7 @@ console.<span class="fn">log</span>(result); <span class="cmt">// { summary: "..
 
 <!-- ── SSE streaming ───────────────────────────────────────────────────────── -->
 <script type="module">
-    import { RefractClient } from '/elements/client.js';
+    import { RefractClient } from '/refract/client.js';
 
     const api = new RefractClient();
     let abortCtrl = null;
@@ -481,7 +481,7 @@ console.<span class="fn">log</span>(result); <span class="cmt">// { summary: "..
 </script>
 
 <!-- ── Auto-function-element (Layer 3) loaded explicitly ─────────────────── -->
-<script type="module" src="/elements/element.js"></script>
+<script type="module" src="/refract/element.js"></script>
 
 </body>
 </html>

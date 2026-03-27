@@ -144,7 +144,7 @@ def stream_words(text: str, delay: float = 0.15) -> StreamResult:
 # We control all routes:
 #   /             → demo.html  (frontend layers demo)
 #   /dashboard    → dashboard.html  (refract auto-UI)
-#   /elements/*   → refract web components (static JS)
+#   /refract/*    → refract SDK (web components + JS client)
 
 app = Refract("demo")
 
@@ -155,7 +155,7 @@ _demo_html = os.path.join(_root, "demo.html")
 
 fastapi_app = FastAPI(title="Refract Demo", description="All features, one file.")
 fastapi_app.include_router(app.router())
-fastapi_app.mount("/elements", StaticFiles(directory=_web_dir), name="elements")
+fastapi_app.mount("/refract", StaticFiles(directory=_web_dir), name="refract-sdk")
 
 
 @fastapi_app.get("/")
