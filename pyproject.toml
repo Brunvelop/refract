@@ -1,6 +1,6 @@
 [project]
 name = "refract"
-version = "1.0.0"
+version = "1.1.0"
 description = "Refract a Python function into multiple interfaces: REST API, CLI, MCP tools, and Web UI"
 readme = "README.md"
 license = {text = "MIT"}
