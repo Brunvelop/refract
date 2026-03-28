@@ -819,6 +819,67 @@ class TestCreateHandler:
 
         assert result == {"result": 8, "success": True, "message": None}
 
+    def test_create_handler_put_uses_request_body(self, sample_function_info):
+        """PUT handler uses request body (Input model), not query params."""
+        handler, model = create_handler(sample_function_info, "PUT")
+
+        assert callable(handler)
+        assert issubclass(model, BaseModel)
+        assert model.__name__ == "Test_AddInput", (
+            "PUT should use a body model (*Input), not query params (*QueryParams)"
+        )
+
+    def test_create_handler_patch_uses_request_body(self, sample_function_info):
+        """PATCH handler uses request body (Input model), not query params."""
+        handler, model = create_handler(sample_function_info, "PATCH")
+
+        assert callable(handler)
+        assert issubclass(model, BaseModel)
+        assert model.__name__ == "Test_AddInput", (
+            "PATCH should use a body model (*Input), not query params (*QueryParams)"
+        )
+
+    def test_create_handler_delete_uses_query_params(self, sample_function_info):
+        """DELETE handler uses query params (QueryParams model)."""
+        handler, model = create_handler(sample_function_info, "DELETE")
+
+        assert callable(handler)
+        assert issubclass(model, BaseModel)
+        assert model.__name__ == "Test_AddQueryParams"
+
+    def test_handler_execution_put_via_test_client(self):
+        """PUT request sends parameters as JSON body and is handled correctly."""
+        func = _make_api_func_info("update_item", http_methods=["PUT"])
+        stub = _make_refract_stub(functions=[func])
+        app = create_api_app(stub)
+        client = TestClient(app)
+
+        response = client.put("/update_item", json={"x": 7, "y": 3})
+        assert response.status_code == 200
+        assert response.json()["result"] == 10
+
+    def test_handler_execution_patch_via_test_client(self):
+        """PATCH request sends parameters as JSON body and is handled correctly."""
+        func = _make_api_func_info("patch_item", http_methods=["PATCH"])
+        stub = _make_refract_stub(functions=[func])
+        app = create_api_app(stub)
+        client = TestClient(app)
+
+        response = client.patch("/patch_item", json={"x": 4, "y": 6})
+        assert response.status_code == 200
+        assert response.json()["result"] == 10
+
+    def test_handler_execution_delete_via_test_client(self):
+        """DELETE request sends parameters as query string."""
+        func = _make_api_func_info("delete_item", http_methods=["DELETE"])
+        stub = _make_refract_stub(functions=[func])
+        app = create_api_app(stub)
+        client = TestClient(app)
+
+        response = client.delete("/delete_item?x=5&y=2")
+        assert response.status_code == 200
+        assert response.json()["result"] == 7
+
 
 # ---------------------------------------------------------------------------
 # Tests: _add_function_endpoints

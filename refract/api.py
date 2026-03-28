@@ -139,6 +139,10 @@ def create_api_app(registry: Registry) -> FastAPI:
     return app
 
 
+# HTTP methods that send parameters in the request body rather than query string.
+_BODY_METHODS = {"POST", "PUT", "PATCH"}
+
+
 def create_handler(func_info: FunctionInfo, method: str):
     """Create endpoint handler for a registered function.
 
@@ -147,16 +151,17 @@ def create_handler(func_info: FunctionInfo, method: str):
 
     Args:
         func_info: The function metadata from the registry.
-        method: HTTP method string (``"GET"`` or ``"POST"``).
+        method: HTTP method string (``"GET"``, ``"POST"``, ``"PUT"``,
+                ``"PATCH"``, or ``"DELETE"``).
 
     Returns:
         Tuple of ``(handler_function, pydantic_model)``.
     """
-    is_post = method.upper() == "POST"
-    DynamicModel = _create_dynamic_model(func_info, for_post=is_post)
+    uses_body = method.upper() in _BODY_METHODS
+    DynamicModel = _create_dynamic_model(func_info, for_post=uses_body)
     is_async = asyncio.iscoroutinefunction(func_info.func)
 
-    if is_post:
+    if uses_body:
         if is_async:
             async def handler(request: DynamicModel):
                 return await _execute_function_async(func_info, request.model_dump(), method)
