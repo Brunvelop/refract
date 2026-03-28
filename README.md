@@ -130,13 +130,25 @@ You immediately get:
 ```bash
 my-project serve          # Start unified server (API + MCP + UI) at http://0.0.0.0:8000
 my-project serve-api      # Start REST API only at http://127.0.0.1:8000
-my-project serve-mcp      # Start API + MCP at http://127.0.0.1:8001
+my-project serve-mcp      # Start MCP-only server at http://127.0.0.1:8001
 my-project list           # List all registered functions
 my-project add --a 1 --b 2   # Call any registered function directly
 my-project --verbose serve   # Enable DEBUG logging
 ```
 
 > **No boilerplate.** The `discover=` list tells Refract which packages to scan for `@register_function` decorators. Everything else is automatic.
+
+> **Custom views and static assets** — Pass `views` to replace the default dashboard with your own HTML pages, and `static_dirs` to serve additional static directories:
+>
+> ```python
+> app = Refract("my-project",
+>     discover=["my_project.core"],
+>     views={"/": "templates/index.html", "/about": "templates/about.html"},
+>     static_dirs=[("/static", "my_app/static")],
+> )
+> ```
+>
+> The `/refract/` namespace is reserved for the SDK JS files and must not be used in `static_dirs`.
 
 > **Advanced uvicorn options** — The built-in `serve` commands are convenience wrappers that support `--host` and `--port`. Features like auto-reload, multiple workers, or custom log levels require uvicorn to be invoked with a **string import path** pointing to an ASGI application. `app.run_cli` is a Click group, not an ASGI app — expose `app.api()` as a module-level variable instead:
 >
@@ -210,6 +222,29 @@ def status():
 - `GET /functions/details` — JSON Schema discovery for the frontend
 - `GET /health` — basic health check
 
+### MCP sidecar — `mcp_only()`
+
+For dedicated AI agent deployments, use `mcp_only()` to spin up a minimal FastAPI app with **only** MCP tool endpoints and a `/health` check — no REST API, no HTML pages, no static files:
+
+```python
+# Sidecar deployment: MCP tools without a full REST API
+mcp_app = app.mcp_only()
+```
+
+This is also what `serve-mcp` uses under the hood, making it ideal for a separate MCP process alongside an existing REST API server.
+
+### Accessing the current instance — `Refract.current()`
+
+Following the Flask `current_app` pattern, `Refract.current()` returns the most recently created instance. Useful in business-logic modules that must not import the app module directly (to avoid circular imports):
+
+```python
+from refract import Refract
+
+# In a module that must not import app.py:
+instance = Refract.current()
+mcp_functions = instance.get_functions_for_interface("mcp")
+```
+
 ---
 
 ## 📡 Streaming (SSE)
@@ -246,7 +281,7 @@ def process_text(text: str) -> ProcessResult:
 On the frontend, consume it with `RefractClient.stream()`:
 
 ```javascript
-import { RefractClient } from '/elements/client.js';
+import { RefractClient } from '/refract/client.js';
 const api = new RefractClient();
 
 for await (const { event, data } of api.stream('process_text', { text: 'hello world' })) {
@@ -273,7 +308,7 @@ Pure HTTP client. Works anywhere — Lit components, vanilla JS, tests.
 
 ```html
 <script type="module">
-import { RefractClient } from '/elements/client.js';
+import { RefractClient } from '/refract/client.js';
 
 const api = new RefractClient();
 await api.loadSchemas();
@@ -293,7 +328,7 @@ LitElement with state management, validation, and execution lifecycle. Extend it
 
 ```html
 <script type="module">
-import { AutoFunctionController } from '/elements/controller.js';
+import { AutoFunctionController } from '/refract/controller.js';
 
 class MyFunctionUI extends AutoFunctionController {
     render() {
@@ -311,19 +346,45 @@ customElements.define('my-function-ui', MyFunctionUI);
 <my-function-ui func-name="add"></my-function-ui>
 ```
 
-Lifecycle events: `before-execute`, `after-execute`, `execute-error`, `function-connected`, `params-changed`.
+**Lifecycle events** — dispatched at every stage of an execution. All bubble and are composed:
+
+| Event | `detail` | Notes |
+|-------|----------|-------|
+| `function-connected` | `{ funcName, funcInfo }` | Fired after the schema is loaded |
+| `params-changed` | `{ params }` | Fired on every `setParam()` call |
+| `before-execute` | `{ funcName, params }` | Cancelable — call `event.preventDefault()` to abort |
+| `after-execute` | `{ funcName, params, result, envelope }` | `result` is the unwrapped payload |
+| `execute-error` | `{ funcName, params, error }` | Fired when the API call throws |
+
+**Envelope unwrap** — the raw API response is always stored in `this.envelope`. If the response has a `result` property, `this.result` is set to `data.result` (the unwrapped payload); otherwise `this.result` mirrors `this.envelope`:
+
+```
+API response: { result: 42, success: true, message: "" }
+  → this.envelope = { result: 42, success: true, message: "" }
+  → this.result   = 42                      // unwrapped
+
+API response: { items: ["a", "b"], total: 2 }
+  → this.envelope = { items: ["a", "b"], total: 2 }
+  → this.result   = { items: ["a", "b"], total: 2 }  // same reference
+```
+
+Convenience properties derived from the envelope: `this.success`, `this.message`, `this.errors`.
+
+**`executeFunction()` static helper** — execute any registered function without creating a DOM element. Useful for inter-function calls (e.g. a chat controller calling a `calculate_context_usage` helper) or for use in plain scripts and tests:
 
 ```javascript
-// Static helper — no DOM element needed
+// Static helper — no DOM element or class instantiation needed
 const result = await AutoFunctionController.executeFunction('add', { a: 1, b: 2 });
 ```
+
+The same envelope-unwrap logic applies: the returned value is the unwrapped payload, not the raw response.
 
 ### Layer 3: `AutoFunctionElement` (Lit, visual card)
 
 Ready-to-use card UI. Auto-generates form fields from the schema — no configuration.
 
 ```html
-<script type="module" src="/elements/element.js"></script>
+<script type="module" src="/refract/element.js"></script>
 <auto-function-element func-name="add"></auto-function-element>
 ```
 
@@ -335,11 +396,25 @@ Auto-fetches `/functions/details` and registers `<auto-{funcName}>` for every fu
 
 ```html
 <!-- Load once — registers <auto-add>, <auto-search>, etc. automatically -->
-<script type="module" src="/elements/generator.js"></script>
+<script type="module" src="/refract/generator.js"></script>
 
 <auto-add></auto-add>
 <auto-search></auto-search>
 ```
+
+---
+
+## 🖥 Dashboard
+
+`app.api()` (and `serve`) include a built-in dashboard served at `/` and `/functions`. No configuration needed — open your browser and you'll see:
+
+- **Health badge** — live status from `GET /health` (function count + healthy/unreachable)
+- **Quick links** — one-click access to Swagger UI, ReDoc, MCP endpoint, Health check, and Schema JSON
+- **Registry table** — all registered functions with name, description, HTTP methods, and interface badges (API / CLI / MCP / SSE)
+- **MCP panel** — the full endpoint URL and connection string (with copy buttons), automatically hidden when MCP is not mounted
+- **Interactive auto-elements** — live `<auto-{funcName}>` cards for every function, rendered directly on the dashboard
+
+The dashboard uses `AutoElementGenerator` internally — the same zero-config Web Component used in your own HTML pages.
 
 ---
 
@@ -382,7 +457,7 @@ The frontend always knows the exact shape of the response — enabling runtime v
 
 ## 🔍 Discovery logging
 
-When `Refract` scans your packages, you see exactly what happened:
+Discovery is **lazy** — modules are imported on the first registry query, not at instantiation time. When Refract scans your packages, you see exactly what happened:
 
 ```
 [refract:my-project] Scanning my_project.core...
@@ -393,7 +468,7 @@ When `Refract` scans your packages, you see exactly what happened:
 [refract:my-project] Total: 3 functions registered, 1 module skipped
 ```
 
-Use `--verbose` to enable DEBUG-level output, or pass `strict=True` to `_discover()` to raise on import errors.
+Discovery is resilient by default — import errors are logged and skipped. Use `--verbose` to enable DEBUG-level output.
 
 ---
 
@@ -433,17 +508,25 @@ refract/
 
 ## 📖 API Reference
 
-### `Refract(name, discover=None)`
+### `Refract(name, discover=None, views=None, static_dirs=None)`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `name` | `str` | — | Human-readable name for this instance (used in logs and API title) |
+| `discover` | `list[str] \| None` | `None` | Package paths to scan for `@register_function` decorators |
+| `views` | `dict[str, str] \| None` | `None` | URL path → HTML file path mapping; replaces the default dashboard |
+| `static_dirs` | `list[tuple[str, str]] \| None` | `None` | Extra `(mount_path, directory)` pairs for static file serving |
 
 | Method / Property | Returns | Description |
 |---|---|---|
 | `.api()` | `FastAPI` | Complete FastAPI app with static files and HTML views |
 | `.router()` | `APIRouter` | Only the function endpoints (mount in your own app) |
 | `.cli()` | `click.Group` | Click group with built-in and function commands |
-| `.mcp()` | `FastAPI` | FastAPI app with MCP integration |
-| `.mcp_only()` | `FastAPI` | MCP-only FastAPI app (no REST API endpoints) |
+| `.mcp()` | `FastAPI` | FastAPI app with full API + MCP integration |
+| `.mcp_only()` | `FastAPI` | MCP-only FastAPI app (no REST API, no UI, no static files) |
 | `.run_cli` | `click.Group` | Cached property — use as `pyproject.toml` entry point |
-| `@.command()` | decorator | Register a custom Click command on this instance |
+| `@.command(name=None, **kwargs)` | decorator | Register a custom Click command; `name` defaults to the function name with `_` → `-` |
+| `.current()` | `Registry` | Classmethod — returns the most recently created instance (Flask `current_app` pattern) |
 | `.get_all_functions()` | `list[FunctionInfo]` | All registered functions |
 | `.get_all_schemas()` | `list[FunctionSchema]` | Serialisable schemas (JSON-safe) |
 | `.get_function_by_name(name)` | `FunctionInfo \| None` | Look up a function by name |
