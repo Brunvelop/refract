@@ -285,9 +285,7 @@ def _register_static_files(app: FastAPI) -> None:
 
     Mounts ``refract/web/`` at ``/refract``, so JS files are served at:
         - ``/refract/client.js``
-        - ``/refract/controller.js``
         - ``/refract/element.js``
-        - ``/refract/generator.js``
     """
     current_dir = os.path.dirname(__file__)
     web_dir = os.path.join(current_dir, "web")
