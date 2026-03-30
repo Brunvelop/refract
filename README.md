@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status: Stable](https://img.shields.io/badge/status-stable-brightgreen.svg)]()
 
-Define a typed Python function once — and automatically get a **REST API**, a **CLI**, **MCP tools** for AI agents, and a **Web UI**.
+Define a typed Python function once — and automatically get a **REST API**, a **CLI**, **MCP tools** for AI agents, and a **Frontend SDK**.
 
 ```python
 from pydantic import BaseModel
@@ -38,7 +38,7 @@ That's it. No routers, no argument parsers, no tool definitions.
 | **REST API** | `app.api()` | FastAPI app with auto-generated endpoints |
 | **CLI** | `app.cli()` | Click group with `serve`, `list`, and one command per function |
 | **MCP tools** | `app.mcp()` | FastAPI + MCP server for AI agents / LLMs |
-| **Web UI** | `<auto-function-element func-name="add">` | Auto-generated form card for every function |
+| **Frontend SDK** | `import { RefractClient } from '/refract/client.js'` | Typed JS client for browsers and frameworks |
 
 ---
 
@@ -294,73 +294,53 @@ for await (const { event, data } of api.stream('process_text', { text: 'hello wo
 
 ## 🌐 Frontend
 
-Two layers — use as much or as little as you need.
+### `RefractClient` (vanilla JS, no framework)
 
-> **Note:** `AutoFunctionElement` (Layer 2) imports
-> [Lit](https://lit.dev/) from `cdn.jsdelivr.net` at runtime.
-> An internet connection is required. For air-gapped environments,
-> bundle Lit locally and update the import path in `element.js`.
+Pure HTTP client for calling Refract functions from JavaScript.
+Works in any context — vanilla JS, React, Vue, Lit, tests.
 
-### Layer 1: `RefractClient` (vanilla JS, no framework)
-
-Pure HTTP client. Works anywhere — Lit components, vanilla JS, tests.
-
-```html
-<script type="module">
+```javascript
 import { RefractClient } from '/refract/client.js';
 
 const api = new RefractClient();
+
+// Call a function — schemas are auto-loaded and cached on the first call
+const data = await api.call('add', { a: 1, b: 2 });
+// → { result: 3 }  — your Pydantic model, as returned by the API
+
+// Stream (SSE)
+for await (const { event, data } of api.stream('process', { text: 'hello' })) {
+    if (event === 'token')    console.log(data.chunk);
+    if (event === 'complete') console.log('Done');
+}
+
+// Access schemas (type info from Python)
 await api.loadSchemas();
-
-const result = await api.call('add', { a: 1, b: 2 });
-console.log(result); // { result: 3 }
-
 const schema = api.getSchema('add');
-console.log(schema.parameters);
-// [{ name: 'a', type: 'int', required: true, ... }, ...]
-</script>
+// schema.parameters    → [{ name: 'a', type: 'int', required: true }, ...]
+// schema.response_schema → { properties: { result: { type: 'integer' } } }
+
+// Validate before calling (for form UX)
+const { valid, errors } = api.validate('add', { a: 1 });
+// → { valid: false, errors: { b: 'Required' } }
 ```
 
-**`RefractClient.execute()` static helper** — execute any registered function without instantiating a client. Useful for one-off calls in plain scripts, tests, or inter-function calls:
-
-```javascript
-// Static helper — no instantiation or loadSchemas() needed
-const result = await RefractClient.execute('add', { a: 1, b: 2 });
-console.log(result); // { result: 3 }
-```
-
-**`RefractClient.validate()` static helper** — validate params against a function's schema without making an API call:
-
-```javascript
-const schema = api.getSchema('add');
-const errors = RefractClient.validate({ a: 1 }, schema);
-// errors: [{ param: 'b', message: 'b is required' }]
-```
-
-### Layer 2: `AutoFunctionElement` (Lit, visual card)
-
-Ready-to-use card UI. Auto-generates form fields from the schema — no configuration.
-
-```html
-<script type="module" src="/refract/element.js"></script>
-<auto-function-element func-name="add"></auto-function-element>
-```
-
-Renders: function name + description, typed inputs (text, number, checkbox, select for `Literal` types, textarea for `dict`/`list`), execute button, result display.
+Parameters are validated against Python type definitions before each call (opt-in via `{ validate: true }`).
+No type coercion — pass the correct JS types matching your Python signatures.
+The response is returned as-is: it is the serialised form of your Pydantic model.
 
 ---
 
 ## 🖥 Dashboard
 
-`app.api()` (and `serve`) include a built-in dashboard served at `/` and `/functions`. No configuration needed — open your browser and you'll see:
+`app.api()` (and `serve`) include a built-in dashboard at `/` and `/functions`. No configuration needed:
 
 - **Health badge** — live status from `GET /health` (function count + healthy/unreachable)
 - **Quick links** — one-click access to Swagger UI, ReDoc, MCP endpoint, Health check, and Schema JSON
 - **Registry table** — all registered functions with name, description, HTTP methods, and interface badges (API / CLI / MCP / SSE)
 - **MCP panel** — the full endpoint URL and connection string (with copy buttons), automatically hidden when MCP is not mounted
-- **Interactive auto-elements** — live `<auto-function-element>` cards for every function, rendered directly on the dashboard
 
-The dashboard uses `AutoFunctionElement` internally — the same Web Component available for your own HTML pages.
+For interactive testing of your functions, use **Swagger UI** (`/docs`) — it's purpose-built for that.
 
 ---
 
@@ -433,8 +413,7 @@ refract/
 │   ├── sse.py            # format_sse(), _create_stream_handler()
 │   ├── log_config.py     # configure_cli_logging(), configure_api_logging()
 │   └── web/
-│       ├── client.js     # RefractClient — Layer 1 (vanilla JS)
-│       ├── element.js    # AutoFunctionElement — Layer 2 (Lit card UI)
+│       ├── client.js     # RefractClient — typed JS client (vanilla JS, no framework)
 │       └── views/
 │           └── dashboard.html  # Default web UI (served at / and /functions)
 ├── demo.py               # Runnable demo — try it right now

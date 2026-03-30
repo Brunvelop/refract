@@ -241,13 +241,6 @@
         }
         .copy-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
 
-        /* ── Auto-elements grid ── */
-        .elements-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
-            gap: 1rem;
-        }
-
         /* ── Loading / empty ── */
         .placeholder {
             text-align: center;
@@ -265,9 +258,6 @@
             .registry-table tr:last-child { border-bottom: none; }
         }
     </style>
-
-    <!-- Web Components -->
-    <script type="module" src="/refract/element.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -336,17 +326,6 @@
                     <button class="copy-btn" onclick="copyMcpConnect()">📋 Copy</button>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Interactive auto-elements -->
-    <div class="card">
-        <div class="card-header">
-            <span class="card-title">⚡ Interactive</span>
-        </div>
-        <div class="card-body">
-            <div id="elementsLoading" class="placeholder">Loading elements…</div>
-            <div class="elements-grid hidden" id="elementsContainer"></div>
         </div>
     </div>
 
@@ -449,22 +428,6 @@
         document.getElementById('mcpConnectStr').textContent = `mcp+http://${location.host}/mcp`;
     }
 
-    // ── Auto-elements ────────────────────────────────────────────────────────
-
-    function renderElements(functions) {
-        const container = document.getElementById('elementsContainer');
-        container.innerHTML = '';
-
-        for (const funcName of Object.keys(functions)) {
-            const el = document.createElement('auto-function-element');
-            el.setAttribute('func-name', funcName);
-            container.appendChild(el);
-        }
-
-        document.getElementById('elementsLoading').classList.add('hidden');
-        container.classList.remove('hidden');
-    }
-
     // ── MCP availability check ───────────────────────────────────────────────
 
     async function checkMcpAvailable() {
@@ -507,7 +470,6 @@
         if (data.status === 'rejected') {
             console.error('Dashboard init error:', data.reason);
             document.getElementById('registryLoading').textContent = `❌ ${data.reason.message}`;
-            document.getElementById('elementsLoading').textContent = `❌ ${data.reason.message}`;
             return;
         }
 
@@ -517,11 +479,9 @@
 
             renderRegistry(functions, projectName);
             if (mcpAvailable.value) renderMcp(functions);
-            renderElements(functions);
         } catch (err) {
             console.error('Dashboard render error:', err);
             document.getElementById('registryLoading').textContent = `❌ ${err.message}`;
-            document.getElementById('elementsLoading').textContent = `❌ ${err.message}`;
         }
     }
 

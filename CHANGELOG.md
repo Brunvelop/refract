@@ -7,27 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **`RefractClient.execute(funcName, params)`** — Static helper to execute a registered function
-  without any DOM dependency (absorbs logic previously in `AutoFunctionController.executeFunction()`).
-- **`RefractClient.validate(params, funcInfo)`** — Pure utility for validating parameters against
-  the function schema (absorbs logic previously in the controller).
-
 ### Changed
 
-- **`AutoFunctionElement` is now self-contained** — Extends `LitElement` directly and uses
-  `RefractClient` via composition instead of inheriting from `AutoFunctionController`.
-  The public API (`func-name` attribute, interactive card) remains unchanged.
-- **Dashboard** — `dashboard.html` now creates `<auto-function-element func-name="...">` elements
-  directly instead of relying on `AutoElementGenerator`.
+- **`RefractClient` redesigned** — The JS client is now a clean, typed HTTP client with no
+  auto-coercion and no envelope unwrapping. Key changes:
+  - `call(funcName, params, options)` — validates and calls. Schemas are auto-loaded and
+    cached on the first invocation. The response is returned as-is (your Pydantic model).
+  - `stream(funcName, params, options)` — same, but as an async generator for SSE. The
+    `options` object now takes `{ signal, validate }` instead of positional `funcInfo`.
+  - `validate(funcName, params)` — instance method (was static). Uses the cached schema.
+    Returns `{ valid, errors }` keyed by param name.
+  - `_validateParams(params, schema)` + `_checkType(value, pythonType)` — explicit
+    Python→JS type mapping: `int`, `float`, `str`, `bool`, `list`, `dict`. Complex/Union
+    types pass through without error (validated by the server).
+- **Dashboard simplified** — The dashboard is now a read-only informational page: registry
+  table, MCP panel, and quick links. For interactive testing, use Swagger UI (`/docs`).
+- **`demo.html` simplified** — Shows `RefractClient` (`call` and `stream`) only. No Layer 2.
 
 ### Removed
 
-- **`AutoFunctionController`** (`controller.js`) — The Lit controller base class has been removed.
-  `AutoFunctionElement` is now self-contained and no longer requires this intermediate layer.
-- **`AutoElementGenerator`** (`generator.js`) — The zero-config element generator has been removed.
-  Use `<auto-function-element func-name="...">` directly instead of auto-generated per-function tags.
+- **`element.js` (`AutoFunctionElement`)** — The Lit web component has been removed. It was
+  only used by the dashboard and `demo.html`. Swagger UI (`/docs`) is a better tool for
+  interactive function testing.
+- **`RefractClient.execute()` static** — Created a new instance + fetched schemas per call,
+  and silently unwrapped any response field named `result` (a bug, not a feature). Use
+  `api.call()` on a shared instance instead.
+- **`RefractClient.validate()` static** — Replaced by the instance method `api.validate()`.
+- **`RefractClient._processParams()`** — Auto-coercion from strings (`parseInt`, `JSON.parse`)
+  has been removed. Pass the correct JS types matching your Python signatures.
+- **`RefractClient._isComplexType()`** — Logic folded into `_checkType()`.
 
 ## [1.1.0] - 2026-03-28
 

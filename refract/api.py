@@ -283,9 +283,8 @@ def _register_custom_views(app: FastAPI, views: dict[str, str]) -> None:
 def _register_static_files(app: FastAPI) -> None:
     """Mount static files directories for web UI.
 
-    Mounts ``refract/web/`` at ``/refract``, so JS files are served at:
+    Mounts ``refract/web/`` at ``/refract``, so the JS client is served at:
         - ``/refract/client.js``
-        - ``/refract/element.js``
     """
     current_dir = os.path.dirname(__file__)
     web_dir = os.path.join(current_dir, "web")
