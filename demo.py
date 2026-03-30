@@ -1,7 +1,7 @@
 """
 Demo — Refract in action.
 
-Showcases all decorator features (backend) and all 3 frontend layers.
+Showcases all decorator features (backend) and both frontend layers.
 
 Usage:
     python demo.py serve          # API + MCP + Web UI at http://localhost:8000
@@ -137,7 +137,7 @@ def stream_words(text: str, delay: float = 0.15) -> StreamResult:
 
 
 # ── App ──────────────────────────────────────────────────────────────────────
-# Level 1: Refract controls everything.
+# Setup mode 1: Refract controls everything.
 # Pass views and static_dirs — app.api() mounts them automatically:
 #   /             → demo.html  (frontend layers demo)
 #   /dashboard    → dashboard.html  (refract auto-UI)
@@ -155,7 +155,7 @@ app = Refract(
 )
 
 
-# Level 2: custom CLI command (works alongside Level 1 — just add @app.command())
+# Setup mode 2: custom CLI command (works alongside mode 1 — just add @app.command())
 @app.command()
 def open_demo():
     """Open the frontend demo page in the browser."""
@@ -164,7 +164,7 @@ def open_demo():
     print("→ http://localhost:8000")
 
 
-# Level 1 — everything mounted automatically by app.api():
+# Setup mode 1 — everything mounted automatically by app.api():
 #   - Dynamic function endpoints
 #   - /functions/details, /health
 #   - Custom views (/ and /dashboard)
@@ -172,7 +172,7 @@ def open_demo():
 fastapi_app = app.api()
 
 
-# --- Level 3 alternative (BYO FastAPI) ---
+# --- Setup mode 3 alternative (BYO FastAPI) ---
 # Use this instead of app.api() when you need full FastAPI control:
 # middleware, lifespan events, custom error handlers, extra mounts, etc.
 #

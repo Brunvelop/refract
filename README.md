@@ -104,11 +104,11 @@ The return type becomes the FastAPI `response_model` — precise OpenAPI schema,
 
 ---
 
-## 📐 Levels of complexity
+## 📐 Setup modes
 
-The setup scales progressively. Each level adds one or two lines — never a new file.
+The setup scales progressively. Each mode adds one or two lines — never a new file.
 
-### Level 1 — One line (recommended default)
+### Mode 1 — One line (recommended default)
 
 ```python
 # my_project/app.py
@@ -173,7 +173,7 @@ my-project --verbose serve   # Enable DEBUG logging
 >
 > See the [uvicorn docs](https://www.uvicorn.org/settings/) for the full list of available options.
 
-### Level 2 — Custom CLI commands
+### Mode 2 — Custom CLI commands
 
 Same file, add `@app.command()`:
 
@@ -196,7 +196,7 @@ my-project health-check   # Your custom command, alongside serve/list
 
 Custom commands use Click under the hood — `click.echo`, `click.option`, etc. work normally.
 
-### Level 3 — Bring your own FastAPI app
+### Mode 3 — Bring your own FastAPI app
 
 Use `app.router()` to mount only the function endpoints onto your own FastAPI instance:
 
