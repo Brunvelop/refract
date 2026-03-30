@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`RefractClient.execute(funcName, params)`** — Static helper to execute a registered function
+  without any DOM dependency (absorbs logic previously in `AutoFunctionController.executeFunction()`).
+- **`RefractClient.validate(params, funcInfo)`** — Pure utility for validating parameters against
+  the function schema (absorbs logic previously in the controller).
+
+### Changed
+
+- **`AutoFunctionElement` is now self-contained** — Extends `LitElement` directly and uses
+  `RefractClient` via composition instead of inheriting from `AutoFunctionController`.
+  The public API (`func-name` attribute, interactive card) remains unchanged.
+- **Dashboard** — `dashboard.html` now creates `<auto-function-element func-name="...">` elements
+  directly instead of relying on `AutoElementGenerator`.
+
+### Removed
+
+- **`AutoFunctionController`** (`controller.js`) — The Lit controller base class has been removed.
+  `AutoFunctionElement` is now self-contained and no longer requires this intermediate layer.
+- **`AutoElementGenerator`** (`generator.js`) — The zero-config element generator has been removed.
+  Use `<auto-function-element func-name="...">` directly instead of auto-generated per-function tags.
+
 ## [1.1.0] - 2026-03-28
 
 ### Added
