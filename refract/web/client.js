@@ -245,4 +245,93 @@ export class RefractClient {
         if (!type) return false;
         return /\b(dict|list)\b|json/i.test(type);
     }
+
+    // ========================================================================
+    // STATIC HELPERS
+    // ========================================================================
+
+    /**
+     * Executes a registered function without creating any DOM element.
+     * Useful for inter-function calls or vanilla-JS contexts.
+     *
+     * Envelope unwrap: if the response has a `result` property, that value is
+     * returned directly; otherwise the full response object is returned.
+     *
+     * @param {string} funcName - Name of the registered function
+     * @param {object} params   - Parameters for the function
+     * @returns {Promise<any>}  - Unwrapped execution result
+     * @throws {Error}          - If the function is not found or the call fails
+     *
+     * @example
+     * const result = await RefractClient.execute('add', { a: 1, b: 2 });
+     */
+    static async execute(funcName, params) {
+        const client = new RefractClient();
+        const schemas = await client.loadSchemas();
+        const funcInfo = schemas[funcName];
+        if (!funcInfo) throw new Error(`Function "${funcName}" not found in registry`);
+
+        const data = await client.call(funcName, params, funcInfo);
+
+        // Unwrap envelope: { result, success, message, ... } → result
+        const hasEnvelopeShape = (
+            data && typeof data === 'object' &&
+            Object.prototype.hasOwnProperty.call(data, 'result')
+        );
+        return hasEnvelopeShape ? data.result : data;
+    }
+
+    /**
+     * Validates a set of parameter values against a function schema (funcInfo).
+     * Pure utility — does not depend on any DOM or component state.
+     *
+     * @param {object} params   - Parameter values map { name: value }
+     * @param {object} funcInfo - Function schema (from /functions/details)
+     * @returns {{ isValid: boolean, errors: Object.<string, string> }}
+     *
+     * @example
+     * const { isValid, errors } = RefractClient.validate(
+     *     { a: '', b: 2 },
+     *     funcInfo
+     * );
+     */
+    static validate(params, funcInfo) {
+        let isValid = true;
+        const errors = {};
+
+        funcInfo?.parameters?.forEach(param => {
+            const value = params[param.name];
+            let error = null;
+
+            // Required check
+            if (param.required) {
+                if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+                    // Booleans are always considered provided (false is a valid value)
+                    if (param.type !== 'bool') {
+                        error = 'Required field';
+                    }
+                }
+            }
+
+            // Type check (basic)
+            if (!error && value !== undefined && value !== null && value !== '') {
+                if (param.type === 'int') {
+                    if (!Number.isInteger(Number(value))) error = 'Must be an integer';
+                } else if (param.type === 'float') {
+                    if (isNaN(parseFloat(value))) error = 'Must be a decimal number';
+                } else if (/\b(dict|list)\b|json/i.test(param.type)) {
+                    if (typeof value === 'string') {
+                        try { JSON.parse(value); } catch { error = 'Invalid JSON'; }
+                    }
+                }
+            }
+
+            if (error) {
+                isValid = false;
+                errors[param.name] = error;
+            }
+        });
+
+        return { isValid, errors };
+    }
 }
