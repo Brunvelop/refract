@@ -38,7 +38,7 @@ That's it. No routers, no argument parsers, no tool definitions.
 | **REST API** | `app.api()` | FastAPI app with auto-generated endpoints |
 | **CLI** | `app.cli()` | Click group with `serve`, `list`, and one command per function |
 | **MCP tools** | `app.mcp()` | FastAPI + MCP server for AI agents / LLMs |
-| **Web UI** | `<auto-add></auto-add>` | Auto-generated form card for every function |
+| **Web UI** | `<auto-function-element func-name="add">` | Auto-generated form card for every function |
 
 ---
 
@@ -294,13 +294,12 @@ for await (const { event, data } of api.stream('process_text', { text: 'hello wo
 
 ## 🌐 Frontend
 
-Three layers — use as much or as little as you need.
+Two layers — use as much or as little as you need.
 
-> **Note:** The Web UI components (Layers 2 & 3) import
+> **Note:** `AutoFunctionElement` (Layer 2) imports
 > [Lit](https://lit.dev/) from `cdn.jsdelivr.net` at runtime.
 > An internet connection is required. For air-gapped environments,
-> bundle Lit locally and update the import paths in `controller.js`
-> and `element.js`.
+> bundle Lit locally and update the import path in `element.js`.
 
 ### Layer 1: `RefractClient` (vanilla JS, no framework)
 
@@ -322,64 +321,23 @@ console.log(schema.parameters);
 </script>
 ```
 
-### Layer 2: `AutoFunctionController` (Lit, stateful)
-
-LitElement with state management, validation, and execution lifecycle. Extend it to build custom function UIs.
-
-```html
-<script type="module">
-import { AutoFunctionController } from '/refract/controller.js';
-
-class MyFunctionUI extends AutoFunctionController {
-    render() {
-        return html`
-            <input @change=${e => this.setParam('a', e.target.value)} />
-            <button @click=${this.execute}>Run</button>
-            ${this.result ? html`<pre>${JSON.stringify(this.result)}</pre>` : ''}
-        `;
-    }
-}
-
-customElements.define('my-function-ui', MyFunctionUI);
-</script>
-
-<my-function-ui func-name="add"></my-function-ui>
-```
-
-**Lifecycle events** — dispatched at every stage of an execution. All bubble and are composed:
-
-| Event | `detail` | Notes |
-|-------|----------|-------|
-| `function-connected` | `{ funcName, funcInfo }` | Fired after the schema is loaded |
-| `params-changed` | `{ params }` | Fired on every `setParam()` call |
-| `before-execute` | `{ funcName, params }` | Cancelable — call `event.preventDefault()` to abort |
-| `after-execute` | `{ funcName, params, result, envelope }` | `result` is the unwrapped payload |
-| `execute-error` | `{ funcName, params, error }` | Fired when the API call throws |
-
-**Envelope unwrap** — the raw API response is always stored in `this.envelope`. If the response has a `result` property, `this.result` is set to `data.result` (the unwrapped payload); otherwise `this.result` mirrors `this.envelope`:
-
-```
-API response: { result: 42, success: true, message: "" }
-  → this.envelope = { result: 42, success: true, message: "" }
-  → this.result   = 42                      // unwrapped
-
-API response: { items: ["a", "b"], total: 2 }
-  → this.envelope = { items: ["a", "b"], total: 2 }
-  → this.result   = { items: ["a", "b"], total: 2 }  // same reference
-```
-
-Convenience properties derived from the envelope: `this.success`, `this.message`, `this.errors`.
-
-**`executeFunction()` static helper** — execute any registered function without creating a DOM element. Useful for inter-function calls (e.g. a chat controller calling a `calculate_context_usage` helper) or for use in plain scripts and tests:
+**`RefractClient.execute()` static helper** — execute any registered function without instantiating a client. Useful for one-off calls in plain scripts, tests, or inter-function calls:
 
 ```javascript
-// Static helper — no DOM element or class instantiation needed
-const result = await AutoFunctionController.executeFunction('add', { a: 1, b: 2 });
+// Static helper — no instantiation or loadSchemas() needed
+const result = await RefractClient.execute('add', { a: 1, b: 2 });
+console.log(result); // { result: 3 }
 ```
 
-The same envelope-unwrap logic applies: the returned value is the unwrapped payload, not the raw response.
+**`RefractClient.validate()` static helper** — validate params against a function's schema without making an API call:
 
-### Layer 3: `AutoFunctionElement` (Lit, visual card)
+```javascript
+const schema = api.getSchema('add');
+const errors = RefractClient.validate({ a: 1 }, schema);
+// errors: [{ param: 'b', message: 'b is required' }]
+```
+
+### Layer 2: `AutoFunctionElement` (Lit, visual card)
 
 Ready-to-use card UI. Auto-generates form fields from the schema — no configuration.
 
@@ -389,18 +347,6 @@ Ready-to-use card UI. Auto-generates form fields from the schema — no configur
 ```
 
 Renders: function name + description, typed inputs (text, number, checkbox, select for `Literal` types, textarea for `dict`/`list`), execute button, result display.
-
-### Zero-config: `AutoElementGenerator`
-
-Auto-fetches `/functions/details` and registers `<auto-{funcName}>` for every function:
-
-```html
-<!-- Load once — registers <auto-add>, <auto-search>, etc. automatically -->
-<script type="module" src="/refract/generator.js"></script>
-
-<auto-add></auto-add>
-<auto-search></auto-search>
-```
 
 ---
 
@@ -412,9 +358,9 @@ Auto-fetches `/functions/details` and registers `<auto-{funcName}>` for every fu
 - **Quick links** — one-click access to Swagger UI, ReDoc, MCP endpoint, Health check, and Schema JSON
 - **Registry table** — all registered functions with name, description, HTTP methods, and interface badges (API / CLI / MCP / SSE)
 - **MCP panel** — the full endpoint URL and connection string (with copy buttons), automatically hidden when MCP is not mounted
-- **Interactive auto-elements** — live `<auto-{funcName}>` cards for every function, rendered directly on the dashboard
+- **Interactive auto-elements** — live `<auto-function-element>` cards for every function, rendered directly on the dashboard
 
-The dashboard uses `AutoElementGenerator` internally — the same zero-config Web Component used in your own HTML pages.
+The dashboard uses `AutoFunctionElement` internally — the same Web Component available for your own HTML pages.
 
 ---
 
@@ -488,9 +434,7 @@ refract/
 │   ├── log_config.py     # configure_cli_logging(), configure_api_logging()
 │   └── web/
 │       ├── client.js     # RefractClient — Layer 1 (vanilla JS)
-│       ├── controller.js # AutoFunctionController — Layer 2 (Lit)
-│       ├── element.js    # AutoFunctionElement — Layer 3 (Lit card UI)
-│       ├── generator.js  # AutoElementGenerator — zero-config custom elements
+│       ├── element.js    # AutoFunctionElement — Layer 2 (Lit card UI)
 │       └── views/
 │           └── dashboard.html  # Default web UI (served at / and /functions)
 ├── demo.py               # Runnable demo — try it right now
