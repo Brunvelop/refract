@@ -267,7 +267,7 @@
     </style>
 
     <!-- Web Components -->
-    <script type="module" src="/refract/generator.js"></script>
+    <script type="module" src="/refract/element.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -451,19 +451,13 @@
 
     // ── Auto-elements ────────────────────────────────────────────────────────
 
-    async function renderElements(functions) {
-        // Wait for generator
-        let attempts = 0;
-        while (!window.autoElementGenerator && attempts < 50) {
-            await new Promise(r => setTimeout(r, 100));
-            attempts++;
-        }
-
+    function renderElements(functions) {
         const container = document.getElementById('elementsContainer');
         container.innerHTML = '';
 
         for (const funcName of Object.keys(functions)) {
-            const el = document.createElement(`auto-${funcName.replace(/_/g, '-')}`);
+            const el = document.createElement('auto-function-element');
+            el.setAttribute('func-name', funcName);
             container.appendChild(el);
         }
 
@@ -523,7 +517,7 @@
 
             renderRegistry(functions, projectName);
             if (mcpAvailable.value) renderMcp(functions);
-            await renderElements(functions);
+            renderElements(functions);
         } catch (err) {
             console.error('Dashboard render error:', err);
             document.getElementById('registryLoading').textContent = `❌ ${err.message}`;
