@@ -19,6 +19,7 @@ Usage::
 __all__ = ["create_cli"]
 
 import asyncio
+import enum
 import logging
 import click
 import uvicorn
@@ -194,6 +195,8 @@ def _get_click_type(param_type: type, choices: Optional[list] = None) -> Any:
     """
     if choices:
         return click.Choice(choices)
+    if isinstance(param_type, type) and issubclass(param_type, enum.Enum):
+        return click.Choice([e.name for e in param_type])
     return TYPE_MAP.get(param_type, click.STRING)
 
 
@@ -221,7 +224,10 @@ def _add_command_options(command_func: Callable, params: list) -> Callable:
         }
 
         if not param.required:
-            option_kwargs["default"] = param.default
+            default = param.default
+            if isinstance(default, enum.Enum):
+                default = default.name
+            option_kwargs["default"] = default
 
         command_func = click.option(option_name, **option_kwargs)(command_func)
 
@@ -244,7 +250,10 @@ def _prepare_function_params(func_info, kwargs: Dict[str, Any]) -> Dict[str, Any
     func_params = {}
     for param in func_info.params:
         if param.name in kwargs and kwargs[param.name] is not None:
-            func_params[param.name] = kwargs[param.name]
+            value = kwargs[param.name]
+            if isinstance(param.type, type) and issubclass(param.type, enum.Enum) and isinstance(value, str):
+                value = param.type[value]
+            func_params[param.name] = value
         elif not param.required and param.default is not None:
             func_params[param.name] = param.default
         elif param.required:

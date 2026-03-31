@@ -4,6 +4,7 @@ Tests for refract.cli module.
 All tests operate through Refract instances — there is no global ``app``
 object or auto-initialization in the refract package.
 """
+import enum
 import json
 import pytest
 from unittest.mock import Mock, patch, MagicMock
@@ -13,10 +14,28 @@ import click
 from refract.cli import (
     _add_command_options,
     _create_handler,
+    _get_click_type,
+    _prepare_function_params,
     TYPE_MAP,
 )
 from refract.models import ParamSchema, FunctionInfo
 from tests.conftest import TestOutput
+
+
+# ============================================================================
+# SHARED ENUM FIXTURES
+# ============================================================================
+
+class RenderQuality(enum.Enum):
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+
+
+class Priority(enum.Enum):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
 
 
 # ============================================================================
@@ -750,3 +769,262 @@ class TestRefractCli:
 
         assert "test_add" in group.commands
         assert "async_test_add" not in group.commands
+
+
+# ============================================================================
+# ENUM PARAMETER HANDLING
+# ============================================================================
+
+class TestEnumParameterHandling:
+    """Tests for Enum type support in CLI parameter handling."""
+
+    # ------------------------------------------------------------------
+    # _get_click_type
+    # ------------------------------------------------------------------
+
+    def test_get_click_type_enum_returns_choice(self):
+        """_get_click_type returns click.Choice for an Enum type."""
+        result = _get_click_type(RenderQuality)
+        assert isinstance(result, click.Choice)
+
+    def test_get_click_type_enum_choices_are_member_names(self):
+        """click.Choice contains the Enum member names (not values)."""
+        result = _get_click_type(RenderQuality)
+        assert set(result.choices) == {"LOW", "NORMAL", "HIGH"}
+
+    def test_get_click_type_enum_with_int_values(self):
+        """Enum with integer values still uses member names as choices."""
+        result = _get_click_type(Priority)
+        assert set(result.choices) == {"LOW", "MEDIUM", "HIGH"}
+
+    def test_get_click_type_non_enum_unaffected(self):
+        """Non-Enum types still resolve through TYPE_MAP as before."""
+        assert _get_click_type(int) == click.INT
+        assert _get_click_type(str) == click.STRING
+        assert _get_click_type(float) == click.FLOAT
+        assert _get_click_type(bool) == click.BOOL
+
+    # ------------------------------------------------------------------
+    # _add_command_options — Enum default serialisation
+    # ------------------------------------------------------------------
+
+    def test_add_command_options_enum_default_serialised_to_name(self):
+        """Enum default is stored as its .name string, not the Enum instance."""
+        received_defaults = {}
+
+        def test_command(**kwargs):
+            received_defaults.update(kwargs)
+
+        params = [
+            ParamSchema(
+                name="quality",
+                type=RenderQuality,
+                default=RenderQuality.NORMAL,
+                required=False,
+                description="Render quality",
+            )
+        ]
+
+        decorated_func = _add_command_options(test_command, params)
+        command = click.command()(decorated_func)
+
+        runner = CliRunner()
+        # Invoke without providing --quality → should use the default
+        result = runner.invoke(command, [])
+        assert result.exit_code == 0
+        assert received_defaults["quality"] == "NORMAL"
+
+    def test_add_command_options_enum_appears_in_help(self):
+        """Enum option appears in --help with its member names as choices."""
+        def test_command(**kwargs):
+            pass
+
+        params = [
+            ParamSchema(
+                name="quality",
+                type=RenderQuality,
+                default=RenderQuality.NORMAL,
+                required=False,
+                description="Render quality",
+            )
+        ]
+
+        decorated_func = _add_command_options(test_command, params)
+        command = click.command()(decorated_func)
+
+        runner = CliRunner()
+        result = runner.invoke(command, ["--help"])
+        assert "--quality" in result.output
+        assert "LOW" in result.output
+        assert "NORMAL" in result.output
+        assert "HIGH" in result.output
+
+    def test_add_command_options_enum_rejects_invalid_value(self):
+        """Click rejects a value not in the Enum choices."""
+        def test_command(**kwargs):
+            pass
+
+        params = [
+            ParamSchema(
+                name="quality",
+                type=RenderQuality,
+                default=RenderQuality.NORMAL,
+                required=False,
+                description="Render quality",
+            )
+        ]
+
+        decorated_func = _add_command_options(test_command, params)
+        command = click.command()(decorated_func)
+
+        runner = CliRunner()
+        result = runner.invoke(command, ["--quality", "ULTRA"])
+        assert result.exit_code != 0
+
+    # ------------------------------------------------------------------
+    # _prepare_function_params — string → Enum conversion
+    # ------------------------------------------------------------------
+
+    def _make_enum_func_info(self):
+        """Helper: FunctionInfo with an Enum parameter."""
+        def render_video(quality: RenderQuality = RenderQuality.NORMAL) -> TestOutput:
+            return TestOutput(result=quality.name)
+
+        return FunctionInfo(
+            name="render_video",
+            func=render_video,
+            description="Render a video",
+            params=[
+                ParamSchema(
+                    name="quality",
+                    type=RenderQuality,
+                    default=RenderQuality.NORMAL,
+                    required=False,
+                    description="Render quality",
+                )
+            ],
+            return_type=TestOutput,
+        )
+
+    def test_prepare_function_params_converts_string_to_enum(self):
+        """String value from CLI is converted back to the Enum instance."""
+        func_info = self._make_enum_func_info()
+        result = _prepare_function_params(func_info, {"quality": "HIGH"})
+        assert result["quality"] is RenderQuality.HIGH
+
+    def test_prepare_function_params_default_enum_unchanged(self):
+        """When CLI passes None, the stored Enum default is used as-is."""
+        func_info = self._make_enum_func_info()
+        result = _prepare_function_params(func_info, {"quality": None})
+        assert result["quality"] is RenderQuality.NORMAL
+
+    def test_prepare_function_params_enum_already_instance_unchanged(self):
+        """If the value is already an Enum instance, it is not double-converted."""
+        func_info = self._make_enum_func_info()
+        result = _prepare_function_params(func_info, {"quality": RenderQuality.LOW})
+        assert result["quality"] is RenderQuality.LOW
+
+    # ------------------------------------------------------------------
+    # End-to-end: full CLI invocation with Enum parameter
+    # ------------------------------------------------------------------
+
+    def test_cli_enum_param_uses_default(self):
+        """CLI command with Enum param runs successfully using its default."""
+        from refract import Refract
+
+        def render_video(quality: RenderQuality = RenderQuality.NORMAL) -> TestOutput:
+            return TestOutput(result=quality.name)
+
+        func_info = FunctionInfo(
+            name="render_video",
+            func=render_video,
+            description="Render a video",
+            params=[
+                ParamSchema(
+                    name="quality",
+                    type=RenderQuality,
+                    default=RenderQuality.NORMAL,
+                    required=False,
+                    description="Render quality",
+                )
+            ],
+            return_type=TestOutput,
+        )
+
+        r = Refract("test-project")
+        r._registry.append(func_info)
+        group = r.cli()
+
+        runner = CliRunner()
+        result = runner.invoke(group, ["render_video"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert parsed["result"] == "NORMAL"
+
+    def test_cli_enum_param_explicit_value(self):
+        """CLI command with Enum param accepts an explicit member name."""
+        from refract import Refract
+
+        def render_video(quality: RenderQuality = RenderQuality.NORMAL) -> TestOutput:
+            return TestOutput(result=quality.name)
+
+        func_info = FunctionInfo(
+            name="render_video",
+            func=render_video,
+            description="Render a video",
+            params=[
+                ParamSchema(
+                    name="quality",
+                    type=RenderQuality,
+                    default=RenderQuality.NORMAL,
+                    required=False,
+                    description="Render quality",
+                )
+            ],
+            return_type=TestOutput,
+        )
+
+        r = Refract("test-project")
+        r._registry.append(func_info)
+        group = r.cli()
+
+        runner = CliRunner()
+        result = runner.invoke(group, ["render_video", "--quality", "HIGH"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert parsed["result"] == "HIGH"
+
+    def test_cli_enum_param_required(self):
+        """CLI command with a required Enum param fails if not provided."""
+        from refract import Refract
+
+        def process(mode: RenderQuality) -> TestOutput:
+            return TestOutput(result=mode.name)
+
+        func_info = FunctionInfo(
+            name="process",
+            func=process,
+            description="Process with required enum",
+            params=[
+                ParamSchema(
+                    name="mode",
+                    type=RenderQuality,
+                    required=True,
+                    description="Processing mode",
+                )
+            ],
+            return_type=TestOutput,
+        )
+
+        r = Refract("test-project")
+        r._registry.append(func_info)
+        group = r.cli()
+
+        runner = CliRunner()
+        result = runner.invoke(group, ["process"])
+        assert result.exit_code != 0
+
+        result = runner.invoke(group, ["process", "--mode", "LOW"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert parsed["result"] == "LOW"
