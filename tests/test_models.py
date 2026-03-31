@@ -359,6 +359,108 @@ class TestSerializeType:
         assert param.model_dump()['type'] == "str?"
 
 
+class TestFunctionInfoTags:
+    """Tests for tags field in FunctionInfo."""
+
+    def test_function_info_tags_default_empty(self, sample_function):
+        """tags field defaults to empty list."""
+        func_info = FunctionInfo(
+            name="test_func",
+            func=sample_function,
+            description="Test function",
+            params=[],
+            return_type=TestOutput,
+        )
+        assert func_info.tags == []
+
+    def test_function_info_tags_can_be_set(self, sample_function):
+        """tags can be set to a list of strings."""
+        func_info = FunctionInfo(
+            name="test_func",
+            func=sample_function,
+            description="Test function",
+            params=[],
+            return_type=TestOutput,
+            tags=["generators", "image"],
+        )
+        assert func_info.tags == ["generators", "image"]
+
+    def test_function_info_to_schema_includes_tags(self, sample_function):
+        """to_schema() propagates tags to FunctionSchema."""
+        func_info = FunctionInfo(
+            name="test_func",
+            func=sample_function,
+            description="Test function",
+            params=[],
+            return_type=TestOutput,
+            tags=["generators", "image"],
+        )
+        schema = func_info.to_schema()
+        assert schema.tags == ["generators", "image"]
+
+    def test_function_info_to_schema_tags_default_empty(self, sample_function):
+        """to_schema() tags defaults to empty list when not set."""
+        func_info = FunctionInfo(
+            name="test_func",
+            func=sample_function,
+            description="Test function",
+            params=[],
+            return_type=TestOutput,
+        )
+        schema = func_info.to_schema()
+        assert schema.tags == []
+
+
+class TestFunctionSchemaTags:
+    """Tests for tags field in FunctionSchema."""
+
+    def test_function_schema_tags_default_empty(self):
+        """tags field defaults to empty list."""
+        schema = FunctionSchema(
+            name="test",
+            description="Test",
+            http_methods=["GET"],
+            parameters=[],
+        )
+        assert schema.tags == []
+
+    def test_function_schema_tags_can_be_set(self):
+        """tags accepts a list of strings."""
+        schema = FunctionSchema(
+            name="test",
+            description="Test",
+            http_methods=["GET"],
+            parameters=[],
+            tags=["generators", "audio"],
+        )
+        assert schema.tags == ["generators", "audio"]
+
+    def test_function_schema_tags_in_serialization(self):
+        """tags are included in model_dump() output."""
+        schema = FunctionSchema(
+            name="test",
+            description="Test",
+            http_methods=["GET"],
+            parameters=[],
+            tags=["generators", "image"],
+        )
+        data = schema.model_dump()
+        assert "tags" in data
+        assert data["tags"] == ["generators", "image"]
+
+    def test_function_schema_tags_empty_in_serialization(self):
+        """tags=[] is serialized as an empty list, not absent."""
+        schema = FunctionSchema(
+            name="test",
+            description="Test",
+            http_methods=["GET"],
+            parameters=[],
+        )
+        data = schema.model_dump()
+        assert "tags" in data
+        assert data["tags"] == []
+
+
 class TestResponseSchema:
     """Tests for response_schema field in FunctionSchema and FunctionInfo.to_schema()."""
 

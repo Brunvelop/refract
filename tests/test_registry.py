@@ -437,6 +437,88 @@ class TestRegisterStreamingFunction:
         assert len(_pending_stream_funcs) == 0
 
 
+class TestRegisterFunctionTags:
+    """Tests for tags parameter in register_function."""
+
+    def test_register_function_tags_stored_in_function_info(self):
+        """tags passed to @register_function are stored in FunctionInfo."""
+        @register_function(http_methods=["POST"], tags=["generators", "image"])
+        def tagged_func(prompt: str) -> TestOutput:
+            """A tagged function."""
+            return TestOutput(result=prompt, success=True)
+
+        app = Refract("test")
+        func_info = app.get_function_by_name("tagged_func")
+        assert func_info is not None
+        assert func_info.tags == ["generators", "image"]
+
+    def test_register_function_tags_default_empty(self):
+        """tags defaults to [] when not provided."""
+        @register_function(http_methods=["GET"])
+        def untagged_func(x: int) -> TestOutput:
+            """An untagged function."""
+            return TestOutput(result=x, success=True)
+
+        app = Refract("test")
+        func_info = app.get_function_by_name("untagged_func")
+        assert func_info is not None
+        assert func_info.tags == []
+
+    def test_register_function_tags_propagated_to_schema(self):
+        """tags are propagated to FunctionSchema via to_schema()."""
+        @register_function(http_methods=["POST"], tags=["generators", "audio"])
+        def tagged_tts_func(text: str) -> TestOutput:
+            """A tagged TTS function."""
+            return TestOutput(result=text, success=True)
+
+        app = Refract("test")
+        schemas = app.get_all_schemas()
+        schema = next((s for s in schemas if s.name == "tagged_tts_func"), None)
+        assert schema is not None
+        assert schema.tags == ["generators", "audio"]
+
+    def test_register_function_tags_single_tag(self):
+        """tags works with a single-element list."""
+        @register_function(tags=["utilities"])
+        def single_tag_func(x: int) -> TestOutput:
+            """A single-tagged function."""
+            return TestOutput(result=x, success=True)
+
+        app = Refract("test")
+        func_info = app.get_function_by_name("single_tag_func")
+        assert func_info is not None
+        assert func_info.tags == ["utilities"]
+
+    def test_register_function_tags_empty_list_explicit(self):
+        """Explicitly passing tags=[] results in empty tags."""
+        @register_function(tags=[])
+        def explicit_empty_tags_func(x: int) -> TestOutput:
+            """Explicit empty tags."""
+            return TestOutput(result=x, success=True)
+
+        app = Refract("test")
+        func_info = app.get_function_by_name("explicit_empty_tags_func")
+        assert func_info is not None
+        assert func_info.tags == []
+
+    def test_register_function_tags_in_functions_details_response(self):
+        """tags appear in the serialized schema returned by get_all_schemas()."""
+        @register_function(http_methods=["POST"], tags=["generators", "image"])
+        def schema_tags_func(prompt: str) -> TestOutput:
+            """Function for schema tags test."""
+            return TestOutput(result=prompt, success=True)
+
+        app = Refract("test")
+        schemas = app.get_all_schemas()
+        schema = next((s for s in schemas if s.name == "schema_tags_func"), None)
+        assert schema is not None
+
+        # Verify serialization (as it would appear in /functions/details response)
+        data = schema.model_dump()
+        assert "tags" in data
+        assert data["tags"] == ["generators", "image"]
+
+
 class TestBaseModelSupport:
     """Tests for relaxed return type validation: any BaseModel subclass is accepted."""
 

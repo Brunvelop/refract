@@ -90,7 +90,8 @@ def register_function(
     http_methods: list[HttpMethod] | None = None,
     interfaces: list[Interface] | None = None,
     streaming: bool = False,
-    stream_func: Callable | None = None
+    stream_func: Callable | None = None,
+    tags: list[str] | None = None,
 ) -> Callable[[Callable], Callable]:
     """Decorator to expose a function via CLI, API, and/or MCP.
 
@@ -99,6 +100,9 @@ def register_function(
         interfaces: Interfaces to expose on (default: api, cli, mcp).
         streaming: Whether this function supports SSE streaming.
         stream_func: Async generator function for streaming. Required if streaming=True.
+        tags: Arbitrary tags for grouping/filtering functions (e.g. ``["generators", "image"]``).
+            Included in the ``/functions/details`` response so clients can filter
+            by category without relying on naming conventions.
 
     Note:
         Async functions (``async def``) are supported for **API** and **MCP**
@@ -117,6 +121,7 @@ def register_function(
 
             info = _generate_function_info(func, http_methods, interfaces)
             info.streaming = streaming
+            info.tags = tags or []
 
             with _pending_lock:
                 # Check for duplicates against pending buffer only

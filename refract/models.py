@@ -103,6 +103,7 @@ class FunctionSchema(BaseModel):
     parameters: list[ParamSchema] = Field(description="Function parameters")
     streaming: bool = Field(default=False, description="Whether this function supports SSE streaming")
     response_schema: dict | None = Field(default=None, description="JSON Schema of the response model")
+    tags: list[str] = Field(default_factory=list, description="Arbitrary tags for grouping/filtering functions (e.g. ['generators', 'image'])")
 
 
 # --- Runtime Models (Internal Registry) ---
@@ -120,6 +121,7 @@ class FunctionInfo(BaseModel):
     # Return type annotation (BaseModel subclass). Useful for typing the response_model in FastAPI.
     return_type: type[BaseModel] | None = Field(default=None, description="Declared return type annotation")
     streaming: bool = Field(default=False, description="Whether this function supports SSE streaming")
+    tags: list[str] = Field(default_factory=list, description="Arbitrary tags for grouping/filtering functions (e.g. ['generators', 'image'])")
 
     def to_schema(self) -> FunctionSchema:
         """Converts to serializable schema."""
@@ -130,6 +132,7 @@ class FunctionInfo(BaseModel):
             interfaces=self.interfaces,
             parameters=self.params,  # ParamSchema serializes automatically
             streaming=self.streaming,
-            response_schema=self.return_type.model_json_schema() if self.return_type else None
+            response_schema=self.return_type.model_json_schema() if self.return_type else None,
+            tags=self.tags,
         )
 
